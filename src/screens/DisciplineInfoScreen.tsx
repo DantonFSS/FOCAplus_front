@@ -1,0 +1,812 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Button } from '../components/Button';
+import { InputText } from '../components/InputText';
+import { theme } from '../theme';
+import { disciplineInstancesApi, DisciplineInstanceResponse, disciplinesApi } from '../api/disciplines';
+import { disciplineSchedulesApi, DisciplineScheduleResponse } from '../api/disciplineSchedules';
+import { disciplineTeachersApi, DisciplineTeacherResponse } from '../api/disciplineTeachers';
+import { assessmentsApi, AssessmentResponse } from '../api/assessments';
+import { tasksApi, TaskResponse } from '../api/tasks';
+import { Alert } from 'react-native';
+
+interface Schedule {
+  id: string;
+  day: string;
+  time: string;
+}
+
+export const DisciplineInfoScreen: React.FC = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const disciplineId = (route.params as any)?.disciplineId;
+  const disciplineName = (route.params as any)?.disciplineName || 'Lógica de Programação';
+  const [discipline, setDiscipline] = useState<DisciplineInstanceResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [totalScore] = useState(130);
+  const [evaluationCount, setEvaluationCount] = useState(2);
+  const [schedules, setSchedules] = useState<DisciplineScheduleResponse[]>([]);
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
+  const [teachers, setTeachers] = useState<DisciplineTeacherResponse[]>([]);
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
+  const [teacherInput, setTeacherInput] = useState('');
+  const [assessments, setAssessments] = useState<AssessmentResponse[]>([]);
+  const [isLoadingAssessments, setIsLoadingAssessments] = useState(false);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+
+  // Mapear weekday para nome do dia
+  const weekdayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+  // Formatar horário para exibição
+  const formatSchedule = (schedule: DisciplineScheduleResponse): string => {
+    const day = weekdayNames[schedule.weekday] || `Dia ${schedule.weekday}`;
+    const startTime = schedule.startTime.substring(0, 5); // "HH:mm"
+    const endTime = schedule.endTime.substring(0, 5); // "HH:mm"
+    return `${day} - ${startTime} às ${endTime}`;
+  };
+
+  // Buscar dados da disciplina do backend
+  useEffect(() => {
+    const loadDiscipline = async () => {
+      if (!disciplineId) return;
+
+      setIsLoading(true);
+      try {
+        // Tentar buscar como instância primeiro
+        try {
+          const disciplineData = await disciplineInstancesApi.getById(disciplineId);
+          setDiscipline(disciplineData);
+          if (disciplineData.assessmentsCount) {
+            setEvaluationCount(disciplineData.assessmentsCount);
+          }
+          // Carregar horários, docentes, avaliações e tarefas da disciplina
+          await loadSchedules(disciplineData.id);
+          await loadTeachers(disciplineData.id);
+          await loadAssessments(disciplineData.id);
+          await loadTasks(disciplineData.id);
+        } catch (instanceError) {
+          // Se não encontrar instância, tentar buscar como template
+          try {
+            const templateData = await disciplinesApi.getById(disciplineId);
+            // Converter template para formato de instância (apenas nome)
+            setDiscipline({
+              id: templateData.id,
+              name: templateData.name,
+              disciplineTemplateId: templateData.id,
+              userCourseId: '',
+              periodInstanceId: '',
+            });
+          } catch (templateError) {
+            console.error('❌ Erro ao carregar disciplina (template):', templateError);
+            // Mantém dados padrão
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar disciplina:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDiscipline();
+  }, [disciplineId]);
+
+  // Carregar horários do backend
+  const loadSchedules = async (instanceId: string) => {
+    setIsLoadingSchedules(true);
+    try {
+      const loadedSchedules = await disciplineSchedulesApi.getByDiscipline(instanceId);
+      setSchedules(loadedSchedules);
+    } catch (error) {
+      console.error('❌ Erro ao carregar horários:', error);
+    } finally {
+      setIsLoadingSchedules(false);
+    }
+  };
+
+  // Carregar avaliações do backend
+  const loadAssessments = async (instanceId: string) => {
+    setIsLoadingAssessments(true);
+    try {
+      const loaded = await assessmentsApi.getByDiscipline(instanceId);
+      setAssessments(loaded);
+    } catch (error) {
+      console.error('❌ Erro ao carregar avaliações:', error);
+    } finally {
+      setIsLoadingAssessments(false);
+    }
+  };
+
+  // Remover horário
+  const handleRemoveSchedule = async (scheduleId: string) => {
+    Alert.alert(
+      'Confirmar',
+      'Deseja remover este horário?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await disciplineSchedulesApi.delete(scheduleId);
+              setSchedules(schedules.filter(s => s.id !== scheduleId));
+            } catch (error) {
+              console.error('❌ Erro ao remover horário:', error);
+              Alert.alert('Erro', 'Não foi possível remover o horário.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Adicionar horário (simplificado - apenas segunda-feira 14h-16h como exemplo)
+  const handleAddSchedule = async () => {
+    if (!discipline?.id) {
+      Alert.alert('Erro', 'Disciplina não encontrada.');
+      return;
+    }
+
+    // Verificar se é uma instância real (tem userCourseId)
+    if (!discipline.userCourseId) {
+      Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
+      return;
+    }
+
+    try {
+      const newSchedule = await disciplineSchedulesApi.create({
+        disciplineInstanceId: discipline.id,
+        weekday: 1, // Segunda-feira
+        startTime: '14:00',
+        endTime: '16:00',
+      });
+      setSchedules([...schedules, newSchedule]);
+    } catch (error) {
+      console.error('❌ Erro ao adicionar horário:', error);
+      Alert.alert('Erro', 'Não foi possível adicionar o horário.');
+    }
+  };
+
+  // Carregar docentes do backend
+  const loadTeachers = async (instanceId: string) => {
+    setIsLoadingTeachers(true);
+    try {
+      const loadedTeachers = await disciplineTeachersApi.getByDiscipline(instanceId);
+      setTeachers(loadedTeachers);
+    } catch (error) {
+      console.error('❌ Erro ao carregar docentes:', error);
+    } finally {
+      setIsLoadingTeachers(false);
+    }
+  };
+
+  // Adicionar docente
+  const handleAddTeacher = async () => {
+    if (!teacherInput.trim()) {
+      return;
+    }
+
+    if (!discipline?.id) {
+      Alert.alert('Erro', 'Disciplina não encontrada.');
+      return;
+    }
+
+    // Verificar se é uma instância real (tem userCourseId)
+    if (!discipline.userCourseId) {
+      Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
+      return;
+    }
+
+    try {
+      const newTeacher = await disciplineTeachersApi.create({
+        disciplineInstanceId: discipline.id,
+        teacherName: teacherInput.trim(),
+      });
+      setTeachers([...teachers, newTeacher]);
+      setTeacherInput('');
+    } catch (error) {
+      console.error('❌ Erro ao adicionar docente:', error);
+      Alert.alert('Erro', 'Não foi possível adicionar o docente.');
+    }
+  };
+
+  // Remover docente
+  const handleRemoveTeacher = async (teacherId: string) => {
+    Alert.alert(
+      'Confirmar',
+      'Deseja remover este docente?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await disciplineTeachersApi.delete(teacherId);
+              setTeachers(teachers.filter(t => t.id !== teacherId));
+            } catch (error) {
+              console.error('❌ Erro ao remover docente:', error);
+              Alert.alert('Erro', 'Não foi possível remover o docente.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Criar avaliação simples (título + descrição opcional)
+  const handleCreateAssessment = async () => {
+    if (!discipline?.id) {
+      Alert.alert('Erro', 'Disciplina não encontrada.');
+      return;
+    }
+
+    if (!discipline.userCourseId) {
+      Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
+      return;
+    }
+
+    try {
+      const newAssessment = await assessmentsApi.create({
+        disciplineInstanceId: discipline.id,
+        title: `Avaliação ${assessments.length + 1}`,
+      });
+      setAssessments([...assessments, newAssessment]);
+    } catch (error) {
+      console.error('❌ Erro ao criar avaliação:', error);
+      Alert.alert('Erro', 'Não foi possível criar a avaliação.');
+    }
+  };
+
+  // Carregar tarefas do backend
+  const loadTasks = async (instanceId: string) => {
+    setIsLoadingTasks(true);
+    try {
+      const loaded = await tasksApi.getByDiscipline(instanceId);
+      setTasks(loaded);
+    } catch (error) {
+      console.error('❌ Erro ao carregar tarefas:', error);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
+  // Criar tarefa simples
+  const handleCreateTask = async () => {
+    if (!discipline?.id) {
+      Alert.alert('Erro', 'Disciplina não encontrada.');
+      return;
+    }
+
+    if (!discipline.userCourseId) {
+      Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
+      return;
+    }
+
+    try {
+      const newTask = await tasksApi.create({
+        disciplineInstanceId: discipline.id,
+        title: `Tarefa ${tasks.length + 1}`,
+      });
+      setTasks([...tasks, newTask]);
+    } catch (error) {
+      console.error('❌ Erro ao criar tarefa:', error);
+      Alert.alert('Erro', 'Não foi possível criar a tarefa.');
+    }
+  };
+
+  // Alternar concluído
+  const handleToggleTaskComplete = async (task: TaskResponse) => {
+    try {
+      const updated = await tasksApi.toggleComplete(task.id, !task.completed);
+      const updatedTask = updated.task;
+      setTasks(tasks.map(t => (t.id === updatedTask.id ? updatedTask : t)));
+    } catch (error) {
+      console.error('❌ Erro ao atualizar tarefa:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar a tarefa.');
+    }
+  };
+
+  const displayName = discipline?.name || disciplineName;
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.colors.blueLight} />
+        <Text style={styles.loadingText}>Carregando disciplina...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Disciplina_Info</Text>
+      </View>
+
+      {/* Discipline Title */}
+      <View style={styles.disciplineHeader}>
+        <Text style={styles.disciplineIcon}>🧠</Text>
+        <Text style={styles.disciplineName}>{displayName}</Text>
+      </View>
+
+      {/* Score Display */}
+      <View style={styles.scoreContainer}>
+        <Text style={styles.scoreText}>Pontuação total: {totalScore}XP</Text>
+      </View>
+
+      {/* Details Card */}
+      <View style={styles.detailsCard}>
+        {/* Horários e dias */}
+        <View style={styles.detailSection}>
+          <View style={styles.detailHeader}>
+            <Text style={styles.detailIcon}>⏰</Text>
+            <Text style={styles.detailLabel}>Horários e dias</Text>
+          </View>
+          {isLoadingSchedules ? (
+            <ActivityIndicator size="small" color={theme.colors.blueLight} />
+          ) : schedules.length > 0 ? (
+            schedules.map((schedule) => (
+              <View key={schedule.id} style={styles.scheduleItem}>
+                <View style={styles.scheduleRow}>
+                  <Text style={styles.scheduleText}>{formatSchedule(schedule)}</Text>
+                  <TouchableOpacity
+                    style={styles.removeScheduleButton}
+                    onPress={() => handleRemoveSchedule(schedule.id)}
+                  >
+                    <Text style={styles.removeScheduleText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          ) : null}
+          <Button
+            title="+ Adicionar horário"
+            onPress={handleAddSchedule}
+            variant="secondary"
+            style={styles.addButton}
+          />
+        </View>
+
+        {/* Docente(s) */}
+        <View style={styles.detailSection}>
+          <View style={styles.detailHeader}>
+            <Text style={styles.detailIcon}>👤</Text>
+            <Text style={styles.detailLabel}>Docente(s)</Text>
+          </View>
+          {isLoadingTeachers ? (
+            <ActivityIndicator size="small" color={theme.colors.blueLight} />
+          ) : teachers.length > 0 ? (
+            <View style={styles.teachersList}>
+              {teachers.map((teacher) => (
+                <View key={teacher.id} style={styles.teacherItem}>
+                  <Text style={styles.teacherText}>{teacher.teacherName}</Text>
+                  <TouchableOpacity
+                    style={styles.removeTeacherButton}
+                    onPress={() => handleRemoveTeacher(teacher.id)}
+                  >
+                    <Text style={styles.removeTeacherText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <View style={styles.teacherInputRow}>
+            <InputText
+              label="Adicionar docente..."
+              containerStyle={[styles.inputContainer, { flex: 1 }]}
+              variant="light"
+              value={teacherInput}
+              onChangeText={setTeacherInput}
+              onSubmitEditing={handleAddTeacher}
+            />
+            <TouchableOpacity
+              style={[styles.addTeacherButton, !teacherInput.trim() && styles.addTeacherButtonDisabled]}
+              onPress={handleAddTeacher}
+              disabled={!teacherInput.trim()}
+            >
+              <Text style={styles.addTeacherButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Avaliações */}
+        <View style={styles.detailSection}>
+          <View style={styles.detailHeader}>
+            <Text style={styles.detailIcon}>📄</Text>
+            <Text style={styles.detailLabel}>Avaliações</Text>
+            <View style={styles.evaluationControls}>
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={handleCreateAssessment}
+              >
+                <Text style={styles.controlButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {isLoadingAssessments ? (
+            <ActivityIndicator size="small" color={theme.colors.blueLight} />
+          ) : assessments.length > 0 ? (
+            <View style={styles.evaluationButtons}>
+              {assessments.map((assessment, index) => (
+                <TouchableOpacity
+                  key={assessment.id}
+                  style={styles.evaluationButton}
+                  onPress={() => {
+                    (navigation as any).navigate('EvaluationInfo', {
+                      evaluationId: assessment.id,
+                      evaluationName: assessment.title || `Avaliação ${index + 1}`,
+                      disciplineName: displayName,
+                      disciplineId: disciplineId,
+                    });
+                  }}
+                >
+                  <Text style={styles.evaluationButtonText}>
+                    {assessment.title || `Avaliação ${index + 1}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <Button
+          title="Tarefas de casa"
+          onPress={handleCreateTask}
+          variant="primary"
+          style={styles.actionButton}
+        />
+        <Button
+          title="Ranking"
+          onPress={() => {}}
+          variant="primary"
+          style={styles.actionButton}
+        />
+      </View>
+
+      {/* Lista simples de tarefas */}
+      {isLoadingTasks ? (
+        <View style={styles.tasksContainer}>
+          <ActivityIndicator size="small" color={theme.colors.blueLight} />
+          <Text style={styles.tasksLoadingText}>Carregando tarefas...</Text>
+        </View>
+      ) : tasks.length > 0 ? (
+        <View style={styles.tasksContainer}>
+          <Text style={styles.tasksTitle}>Tarefas</Text>
+          {tasks.map(task => (
+            <TouchableOpacity
+              key={task.id}
+              style={[styles.taskItem, task.completed && styles.taskItemCompleted]}
+              onPress={() => handleToggleTaskComplete(task)}
+            >
+              <Text
+                style={[
+                  styles.taskTitle,
+                  task.completed && styles.taskTitleCompleted,
+                ]}
+              >
+                {task.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
+
+      {/* Start Study Button */}
+      <TouchableOpacity
+        style={styles.startStudyButton}
+        onPress={() => {
+          Alert.alert('Em breve', 'O modo de estudo ainda será implementado.');
+        }}
+        activeOpacity={0.8}
+      >
+        <Image source={require('../../assets/foca2.png')} style={styles.startStudyIcon} />
+        <Text style={styles.startStudyText}>Iniciar estudo</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.white,
+  },
+  content: {
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xl,
+  },
+  backArrow: {
+    fontSize: 24,
+    color: theme.colors.black,
+    marginRight: theme.spacing.md,
+  },
+  headerTitle: {
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: '600',
+    color: theme.colors.black,
+  },
+  disciplineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  disciplineIcon: {
+    fontSize: 32,
+    marginRight: theme.spacing.md,
+  },
+  disciplineName: {
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: '700',
+    color: theme.colors.black,
+  },
+  scoreContainer: {
+    backgroundColor: theme.colors.blueLight,
+    borderRadius: theme.borderRadius.round,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    alignSelf: 'flex-start',
+    marginBottom: theme.spacing.lg,
+  },
+  scoreText: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.white,
+  },
+  detailsCard: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.grayLight,
+  },
+  detailSection: {
+    marginBottom: theme.spacing.lg,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  detailIcon: {
+    fontSize: 20,
+    marginRight: theme.spacing.sm,
+  },
+  detailLabel: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.black,
+    flex: 1,
+  },
+  scheduleItem: {
+    marginBottom: theme.spacing.sm,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+  },
+  scheduleText: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.grayDark,
+    flex: 1,
+  },
+  removeScheduleButton: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.round,
+    backgroundColor: theme.colors.redBad,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: theme.spacing.sm,
+  },
+  removeScheduleText: {
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '700',
+    color: theme.colors.white,
+  },
+  addButton: {
+    alignSelf: 'flex-start',
+    marginTop: theme.spacing.xs,
+  },
+  inputContainer: {
+    marginBottom: 0,
+  },
+  teachersList: {
+    marginBottom: theme.spacing.sm,
+  },
+  teacherItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.backgroundLight,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  teacherText: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.black,
+    flex: 1,
+  },
+  removeTeacherButton: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.round,
+    backgroundColor: theme.colors.redBad,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: theme.spacing.sm,
+  },
+  removeTeacherText: {
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: '700',
+    color: theme.colors.white,
+  },
+  teacherInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: theme.spacing.sm,
+  },
+  addTeacherButton: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.blueLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  addTeacherButtonDisabled: {
+    backgroundColor: theme.colors.grayLight,
+    opacity: 0.5,
+  },
+  addTeacherButtonText: {
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: '700',
+    color: theme.colors.white,
+  },
+  evaluationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  controlButton: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.blueLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  controlButtonDisabled: {
+    backgroundColor: theme.colors.grayLight,
+    opacity: 0.5,
+  },
+  controlButtonText: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: '700',
+    color: theme.colors.white,
+  },
+  controlButtonTextDisabled: {
+    color: theme.colors.gray,
+  },
+  evaluationCount: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.black,
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  evaluationButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  evaluationButton: {
+    backgroundColor: theme.colors.blueLight,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+  },
+  evaluationButtonText: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.white,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  startStudyButton: {
+    backgroundColor: theme.colors.blueLight,
+    borderRadius: theme.borderRadius.round,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  startStudyIcon: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
+    marginRight: theme.spacing.sm,
+  },
+  startStudyText: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: '700',
+    color: theme.colors.white,
+  },
+  tasksContainer: {
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  tasksTitle: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.black,
+    marginBottom: theme.spacing.sm,
+  },
+  tasksLoadingText: {
+    marginTop: theme.spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.grayDark,
+  },
+  taskItem: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.backgroundLight,
+    marginBottom: theme.spacing.xs,
+  },
+  taskItemCompleted: {
+    backgroundColor: theme.colors.grayLight,
+  },
+  taskTitle: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.black,
+  },
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: theme.colors.grayDark,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.grayDark,
+  },
+});
+
