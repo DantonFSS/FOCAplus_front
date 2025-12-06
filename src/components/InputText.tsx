@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TextInput, Text, StyleSheet, ViewStyle, TextInputProps, Animated } from 'react-native';
+import { View, TextInput, Text, StyleSheet, ViewStyle, TextInputProps, Animated, StyleProp } from 'react-native';
 import { theme } from '../theme';
 
 interface InputTextProps extends TextInputProps {
   label?: string;
   error?: string;
-  containerStyle?: ViewStyle;
+  containerStyle?: StyleProp<ViewStyle>;
   variant?: 'dark' | 'light';
 }
 

@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal, TextInput } from 'react-native';
-import { theme } from '../theme';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Modal,
+  TextInput,
+} from "react-native";
+import { theme } from "../theme";
 
 // Import DateTimePicker only for native platforms
 let DateTimePicker: any = null;
-if (Platform.OS !== 'web') {
+if (Platform.OS !== "web") {
   try {
-    DateTimePicker = require('@react-native-community/datetimepicker').default;
+    DateTimePicker = require("@react-native-community/datetimepicker").default;
   } catch (e) {
-    console.warn('DateTimePicker not available');
+    console.warn("DateTimePicker not available");
   }
 }
 
@@ -28,12 +36,12 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   error,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
-  const [day, setDay] = useState('');
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState('');
+  const [day, setDay] = useState("");
+  const [month, setMonth] = useState("");
+  const [year, setYear] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     if (value) {
-      const parts = value.split('/');
+      const parts = value.split("/");
       if (parts.length === 3) {
         const day = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10) - 1; // JavaScript months are 0-indexed
@@ -45,40 +53,40 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   });
 
   const formatDate = (date: Date): string => {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   };
 
   const handleDateChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       setShowPicker(false);
     }
-    
+
     if (date) {
       setSelectedDate(date);
       onChange(formatDate(date));
     }
-    
-    if (Platform.OS === 'ios' && event.type === 'dismissed') {
+
+    if (Platform.OS === "ios" && event.type === "dismissed") {
       setShowPicker(false);
     }
   };
 
   const handleOpen = () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // Inicializar campos com valor atual se existir
       if (value) {
-        const parts = value.split('/');
-        setDay(parts[0] || '');
-        setMonth(parts[1] || '');
-        setYear(parts[2] || '');
+        const parts = value.split("/");
+        setDay(parts[0] || "");
+        setMonth(parts[1] || "");
+        setYear(parts[2] || "");
       } else {
         const today = new Date();
-        setDay(today.getDate().toString().padStart(2, '0'));
-        setMonth((today.getMonth() + 1).toString().padStart(2, '0'));
-        setYear(today.getFullYear().toString());
+        setDay("");
+        setMonth("");
+        setYear("");
       }
     }
     setShowPicker(true);
@@ -103,11 +111,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           <DateTimePicker
             value={selectedDate}
             mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display={Platform.OS === "ios" ? "spinner" : "default"}
             onChange={handleDateChange}
             minimumDate={new Date()}
           />
-          {Platform.OS === 'ios' && (
+          {Platform.OS === "ios" && (
             <View style={styles.iosButtonContainer}>
               <TouchableOpacity
                 style={styles.iosButton}
@@ -120,21 +128,22 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         </>
       )}
 
-      {showPicker && Platform.OS === 'web' && (
+      {showPicker && Platform.OS === "web" && (
         <Modal
           visible={showPicker}
           transparent
           animationType="fade"
           onRequestClose={() => setShowPicker(false)}
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowPicker(false)}
-          >
-            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1}>
+            <View
+              style={styles.modalContent}
+              onStartShouldSetResponder={() => true}
+            >
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{label || 'Selecione a data'}</Text>
+                <Text style={styles.modalTitle}>
+                  {label || "Selecione a data"}
+                </Text>
                 <TouchableOpacity onPress={() => setShowPicker(false)}>
                   <Text style={styles.modalClose}>✕</Text>
                 </TouchableOpacity>
@@ -145,8 +154,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <TextInput
                     style={styles.dateInput}
                     placeholder="DD"
-                    value={day || (value ? value.split('/')[0] : '')}
-                    onChangeText={(text) => setDay(text.replace(/\D/g, '').slice(0, 2))}
+                    value={day || (value ? value.split("/")[0] : "")}
+                    onChangeText={(text) =>
+                      setDay(text.replace(/\D/g, "").slice(0, 2))
+                    }
                     keyboardType="numeric"
                     maxLength={2}
                   />
@@ -157,8 +168,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <TextInput
                     style={styles.dateInput}
                     placeholder="MM"
-                    value={month || (value ? value.split('/')[1] : '')}
-                    onChangeText={(text) => setMonth(text.replace(/\D/g, '').slice(0, 2))}
+                    value={month || (value ? value.split("/")[1] : "")}
+                    onChangeText={(text) =>
+                      setMonth(text.replace(/\D/g, "").slice(0, 2))
+                    }
                     keyboardType="numeric"
                     maxLength={2}
                   />
@@ -169,8 +182,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <TextInput
                     style={styles.dateInput}
                     placeholder="AAAA"
-                    value={year || (value ? value.split('/')[2] : '')}
-                    onChangeText={(text) => setYear(text.replace(/\D/g, '').slice(0, 4))}
+                    value={year || (value ? value.split("/")[2] : "")}
+                    onChangeText={(text) =>
+                      setYear(text.replace(/\D/g, "").slice(0, 4))
+                    }
                     keyboardType="numeric"
                     maxLength={4}
                   />
@@ -181,9 +196,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   style={styles.cancelButton}
                   onPress={() => {
                     setShowPicker(false);
-                    setDay('');
-                    setMonth('');
-                    setYear('');
+                    setDay("");
+                    setMonth("");
+                    setYear("");
                   }}
                 >
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
@@ -191,15 +206,42 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 <TouchableOpacity
                   style={styles.saveButton}
                   onPress={() => {
-                    if (day && month && year) {
-                      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                      setSelectedDate(date);
-                      onChange(formatDate(date));
-                      setShowPicker(false);
-                      setDay('');
-                      setMonth('');
-                      setYear('');
+                    const d = parseInt(day);
+                    const m = parseInt(month);
+                    const y = parseInt(year);
+
+                    if (
+                      !d ||
+                      !m ||
+                      !y ||
+                      d < 1 ||
+                      d > 31 ||
+                      m < 1 ||
+                      m > 12 ||
+                      y < 1900
+                    ) {
+                      alert("Data inválida");
+                      return;
                     }
+
+                    const date = new Date(y, m - 1, d);
+
+                    // Validação real de calendário
+                    if (
+                      date.getFullYear() !== y ||
+                      date.getMonth() !== m - 1 ||
+                      date.getDate() !== d
+                    ) {
+                      alert("Data inválida");
+                      return;
+                    }
+
+                    setSelectedDate(date);
+                    onChange(formatDate(date));
+                    setShowPicker(false);
+                    setDay("");
+                    setMonth("");
+                    setYear("");
                   }}
                 >
                   <Text style={styles.saveButtonText}>Salvar</Text>
@@ -221,13 +263,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.grayDark,
     marginBottom: 2,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 0.1,
   },
   dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1.5,
     borderColor: theme.colors.blueLight,
     borderRadius: theme.borderRadius.lg,
@@ -235,7 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: theme.spacing.md,
     minHeight: 50,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -251,7 +293,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.black,
     flex: 1,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   placeholder: {
     color: theme.colors.gray,
@@ -275,35 +317,35 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.blueLight,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   iosButtonText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,
-    width: '80%',
+    width: "80%",
     maxWidth: 400,
     padding: theme.spacing.lg,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.lg,
   },
   modalTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.black,
   },
   modalClose: {
@@ -311,9 +353,9 @@ const styles = StyleSheet.create({
     color: theme.colors.gray,
   },
   dateInputsContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
     marginBottom: theme.spacing.lg,
   },
   dateInputGroup: {
@@ -333,7 +375,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.black,
-    textAlign: 'center',
+    textAlign: "center",
   },
   dateSeparator: {
     fontSize: theme.typography.fontSize.xl,
@@ -342,7 +384,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   modalButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
   },
   cancelButton: {
@@ -353,12 +395,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.blueLight,
     backgroundColor: theme.colors.white,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.blueLight,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   saveButton: {
     flex: 1,
@@ -366,12 +408,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.blueLight,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButtonText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
-

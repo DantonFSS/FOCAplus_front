@@ -96,6 +96,16 @@ export interface UpdateCourseRequest {
   emails?: string[];
 }
 
+export interface UpdateCourseInfoRequest {
+  institutionName?: string;
+  startDate?: string;
+  endDate?: string;
+  address?: string;
+  online?: boolean;
+  phones?: string[];
+  emails?: string[];
+}
+
 export const coursesApi = {
   create: async (data: CreateCourseRequest): Promise<CourseResponse> => {
     const response = await apiClient.post<CourseResponse>('/courses', data);
@@ -116,6 +126,11 @@ export const coursesApi = {
     const response = await apiClient.put<CourseResponse>(`/courses/${id}`, data);
     return response.data;
   },
+
+  updateInfo: async (id: string, data: UpdateCourseInfoRequest): Promise<CourseResponse> => {
+  const response = await apiClient.put<CourseResponse>(`/courses/${id}/info`, data);
+  return response.data;
+},
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/courses/${id}`);

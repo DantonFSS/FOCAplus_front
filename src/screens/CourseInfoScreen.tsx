@@ -185,7 +185,7 @@ export const CourseInfoScreen: React.FC = () => {
         emails: data.contact && data.contact.includes('@') ? [data.contact] : undefined,
       };
 
-      const updatedCourse = await coursesApi.update(currentCourse.id, updateData);
+      const updatedCourse = await coursesApi.updateInfo(currentCourse.id, updateData);
       setCurrentCourse(updatedCourse);
       setIsEditing(false);
       

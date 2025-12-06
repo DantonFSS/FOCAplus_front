@@ -1,12 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { useForm, Controller } from 'react-hook-form';
-import { DatePicker } from '../components/DatePicker';
-import { Button } from '../components/Button';
-import { theme } from '../theme';
-import { periodsApi, PeriodTemplateResponse } from '../api/periods';
-import { disciplinesApi, DisciplineTemplateResponse } from '../api/disciplines';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
+import { useForm, Controller } from "react-hook-form";
+import { DatePicker } from "../components/DatePicker";
+import { Button } from "../components/Button";
+import { theme } from "../theme";
+import { periodsApi, PeriodTemplateResponse } from "../api/periods";
+import { disciplinesApi, DisciplineTemplateResponse } from "../api/disciplines";
 
 interface PeriodInfoFormData {
   startDate: string;
@@ -19,13 +31,16 @@ export const PeriodInfoScreen: React.FC = () => {
   const periodNumber = (route.params as any)?.periodNumber || 1;
   const createdCourse = (route.params as any)?.createdCourse;
   const periodTemplateId = (route.params as any)?.periodTemplateId;
-  const initialStartDate = (route.params as any)?.startDate || '';
-  const initialEndDate = (route.params as any)?.endDate || '';
+  const initialStartDate = (route.params as any)?.startDate || "";
+  const initialEndDate = (route.params as any)?.endDate || "";
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [periodTemplate, setPeriodTemplate] = useState<PeriodTemplateResponse | null>(null);
+  const [periodTemplate, setPeriodTemplate] =
+    useState<PeriodTemplateResponse | null>(null);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
-  const [disciplines, setDisciplines] = useState<DisciplineTemplateResponse[]>([]);
+  const [disciplines, setDisciplines] = useState<DisciplineTemplateResponse[]>(
+    []
+  );
   const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
 
   const {
@@ -49,21 +64,21 @@ export const PeriodInfoScreen: React.FC = () => {
         setIsLoadingPeriod(true);
         try {
           const template = await periodsApi.getTemplateById(periodTemplateId);
-          
+
           if (template) {
             setPeriodTemplate(template);
             // Converter datas ISO para formato dd/mm/aaaa
             if (template.startDate) {
               const startDate = convertDateFromISO(template.startDate);
-              setValue('startDate', startDate);
+              setValue("startDate", startDate);
             }
             if (template.endDate) {
               const endDate = convertDateFromISO(template.endDate);
-              setValue('endDate', endDate);
+              setValue("endDate", endDate);
             }
           }
         } catch (error) {
-          console.error('❌ Erro ao carregar período:', error);
+          console.error("❌ Erro ao carregar período:", error);
         } finally {
           setIsLoadingPeriod(false);
         }
@@ -75,23 +90,25 @@ export const PeriodInfoScreen: React.FC = () => {
 
       setIsLoadingPeriod(true);
       try {
-        const templates = await periodsApi.getTemplatesByCourse(createdCourse.id);
+        const templates = await periodsApi.getTemplatesByCourse(
+          createdCourse.id
+        );
         const template = templates.find((t) => t.periodNumber === periodNumber);
-        
+
         if (template) {
           setPeriodTemplate(template);
           // Converter datas ISO para formato dd/mm/aaaa
           if (template.startDate) {
             const startDate = convertDateFromISO(template.startDate);
-            setValue('startDate', startDate);
+            setValue("startDate", startDate);
           }
           if (template.endDate) {
             const endDate = convertDateFromISO(template.endDate);
-            setValue('endDate', endDate);
+            setValue("endDate", endDate);
           }
         }
       } catch (error) {
-        console.error('❌ Erro ao carregar período:', error);
+        console.error("❌ Erro ao carregar período:", error);
       } finally {
         setIsLoadingPeriod(false);
       }
@@ -107,10 +124,12 @@ export const PeriodInfoScreen: React.FC = () => {
 
     setIsLoadingDisciplines(true);
     try {
-      const loadedDisciplines = await disciplinesApi.getByPeriod(currentPeriodTemplateId);
+      const loadedDisciplines = await disciplinesApi.getByPeriod(
+        currentPeriodTemplateId
+      );
       setDisciplines(loadedDisciplines);
     } catch (error) {
-      console.error('❌ Erro ao carregar disciplinas:', error);
+      console.error("❌ Erro ao carregar disciplinas:", error);
     } finally {
       setIsLoadingDisciplines(false);
     }
@@ -131,23 +150,23 @@ export const PeriodInfoScreen: React.FC = () => {
   const convertDateFromISO = (isoDate: string): string => {
     try {
       const date = new Date(isoDate);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = date.getFullYear();
       return `${day}/${month}/${year}`;
     } catch {
-      return '';
+      return "";
     }
   };
 
   // Função para converter data dd/mm/aaaa para ISO
   const convertDateToISO = (dateStr: string): string | undefined => {
-    if (!dateStr || dateStr.trim() === '') return undefined;
-    
+    if (!dateStr || dateStr.trim() === "") return undefined;
+
     try {
-      const [day, month, year] = dateStr.split('/');
+      const [day, month, year] = dateStr.split("/");
       const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      return date.toISOString().split('T')[0];
+      return date.toISOString().split("T")[0];
     } catch {
       return undefined;
     }
@@ -155,7 +174,7 @@ export const PeriodInfoScreen: React.FC = () => {
 
   const onSubmit = async (data: PeriodInfoFormData) => {
     if (!createdCourse?.id) {
-      Alert.alert('Erro', 'Curso não encontrado');
+      Alert.alert("Erro", "Curso não encontrado");
       return;
     }
 
@@ -164,13 +183,33 @@ export const PeriodInfoScreen: React.FC = () => {
       const startDateISO = convertDateToISO(data.startDate);
       const endDateISO = convertDateToISO(data.endDate);
 
+      console.log("📝 Salvando período com dados:")
       if (periodTemplate?.id) {
+        console.log(` - Atualizando período ID ${periodTemplate.id}`);
         // Atualizar período existente
-        await periodsApi.updateTemplate(periodTemplate.id, {
+        const updated = await periodsApi.updateTemplate(periodTemplate.id, {
           startDate: startDateISO,
           endDate: endDateISO,
         });
-        Alert.alert('Sucesso', 'Informações do período atualizadas com sucesso!');
+
+        console.log("✅ Período atualizado:", updated);
+
+        setPeriodTemplate(updated);
+
+        // Atualiza os inputs também
+        reset({
+          startDate: updated.startDate
+            ? convertDateFromISO(updated.startDate)
+            : "",
+          endDate: updated.endDate ? convertDateFromISO(updated.endDate) : "",
+        });
+
+        console.log("✅ Formulário atualizado com novos dados.");
+
+        Alert.alert(
+          "Sucesso",
+          "Informações do período atualizadas com sucesso!"
+        );
       } else {
         // Criar novo período template
         const newTemplate = await periodsApi.createTemplate({
@@ -180,15 +219,16 @@ export const PeriodInfoScreen: React.FC = () => {
           endDate: endDateISO,
         });
         setPeriodTemplate(newTemplate);
-        Alert.alert('Sucesso', 'Período criado com sucesso!');
+        Alert.alert("Sucesso", "Período criado com sucesso!");
       }
 
       setIsEditing(false);
     } catch (error: any) {
-      console.error('❌ Erro ao salvar período:', error);
+      console.error("❌ Erro ao salvar período:", error);
       Alert.alert(
-        'Erro',
-        error.response?.data?.message || 'Erro ao salvar informações do período. Tente novamente.'
+        "Erro",
+        error.response?.data?.message ||
+          "Erro ao salvar informações do período. Tente novamente."
       );
     } finally {
       setIsLoading(false);
@@ -202,13 +242,16 @@ export const PeriodInfoScreen: React.FC = () => {
 
   const handleAddDisciplines = () => {
     const effectivePeriodTemplateId = periodTemplate?.id || periodTemplateId;
-    
+
     if (!effectivePeriodTemplateId) {
-      Alert.alert('Erro', 'Período não encontrado. Por favor, aguarde o carregamento do período.');
+      Alert.alert(
+        "Erro",
+        "Período não encontrado. Por favor, aguarde o carregamento do período."
+      );
       return;
     }
-    
-    (navigation as any).navigate('AddDisciplines', {
+
+    (navigation as any).navigate("AddDisciplines", {
       periodNumber,
       createdCourse,
       periodTemplateId: effectivePeriodTemplateId,
@@ -223,7 +266,7 @@ export const PeriodInfoScreen: React.FC = () => {
           <Text style={styles.backArrow}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Período Info Editando' : 'Período Info'}
+          {isEditing ? "Período Info Editando" : "Período Info"}
         </Text>
       </View>
 
@@ -240,11 +283,11 @@ export const PeriodInfoScreen: React.FC = () => {
         {isEditing ? (
           <>
             <Text style={styles.editTitle}>Editar informações do período</Text>
-            
+
             <Controller
               control={control}
               name="startDate"
-              rules={{ required: 'Data de início é obrigatória' }}
+              rules={{ required: "Data de início é obrigatória" }}
               render={({ field: { onChange, value } }) => (
                 <DatePicker
                   label="Previsão de início"
@@ -259,7 +302,7 @@ export const PeriodInfoScreen: React.FC = () => {
             <Controller
               control={control}
               name="endDate"
-              rules={{ required: 'Data de término é obrigatória' }}
+              rules={{ required: "Data de término é obrigatória" }}
               render={({ field: { onChange, value } }) => (
                 <DatePicker
                   label="Previsão de término"
@@ -291,22 +334,31 @@ export const PeriodInfoScreen: React.FC = () => {
           <>
             {isLoadingPeriod ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={theme.colors.blueLight} />
-                <Text style={styles.loadingText}>Carregando informações...</Text>
+                <ActivityIndicator
+                  size="large"
+                  color={theme.colors.blueLight}
+                />
+                <Text style={styles.loadingText}>
+                  Carregando informações...
+                </Text>
               </View>
             ) : (
               <>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Previsão de início</Text>
                   <Text style={styles.infoValue}>
-                    {periodTemplate?.startDate ? convertDateFromISO(periodTemplate.startDate) : (initialStartDate || 'dd/mm/aaaa')}
+                    {periodTemplate?.startDate
+                      ? convertDateFromISO(periodTemplate.startDate)
+                      : initialStartDate || "dd/mm/aaaa"}
                   </Text>
                 </View>
 
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Previsão de término</Text>
                   <Text style={styles.infoValue}>
-                    {periodTemplate?.endDate ? convertDateFromISO(periodTemplate.endDate) : (initialEndDate || 'dd/mm/aaaa')}
+                    {periodTemplate?.endDate
+                      ? convertDateFromISO(periodTemplate.endDate)
+                      : initialEndDate || "dd/mm/aaaa"}
                   </Text>
                 </View>
 
@@ -334,7 +386,9 @@ export const PeriodInfoScreen: React.FC = () => {
       {isLoadingDisciplines ? (
         <View style={styles.disciplinesLoadingContainer}>
           <ActivityIndicator size="small" color={theme.colors.blueLight} />
-          <Text style={styles.disciplinesLoadingText}>Carregando disciplinas...</Text>
+          <Text style={styles.disciplinesLoadingText}>
+            Carregando disciplinas...
+          </Text>
         </View>
       ) : disciplines.length > 0 ? (
         <View style={styles.disciplinesContainer}>
@@ -345,7 +399,7 @@ export const PeriodInfoScreen: React.FC = () => {
               style={styles.disciplineCard}
               onPress={() => {
                 // Navegar para informações da disciplina
-                (navigation as any).navigate('DisciplineInfo', {
+                (navigation as any).navigate("DisciplineInfo", {
                   disciplineId: discipline.id,
                   disciplineName: discipline.name,
                   periodTemplateId: periodTemplate?.id || periodTemplateId,
@@ -371,8 +425,8 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.xl,
   },
   backArrow: {
@@ -382,11 +436,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.black,
   },
   periodOverview: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.xl,
   },
   periodNumberCircle: {
@@ -394,18 +448,18 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     backgroundColor: theme.colors.blueLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
   },
   periodNumber: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.white,
   },
   periodTitle: {
     fontSize: theme.typography.fontSize.xxl,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.black,
   },
   infoCard: {
@@ -418,14 +472,14 @@ const styles = StyleSheet.create({
   },
   editTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.black,
     marginBottom: theme.spacing.lg,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
@@ -434,18 +488,18 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.grayDark,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   infoValue: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.gray,
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
     marginLeft: theme.spacing.md,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   editButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
     marginTop: theme.spacing.md,
   },
@@ -477,8 +531,8 @@ const styles = StyleSheet.create({
     color: theme.colors.black,
   },
   loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: theme.spacing.xl,
   },
   loadingText: {
@@ -487,8 +541,8 @@ const styles = StyleSheet.create({
     color: theme.colors.gray,
   },
   disciplinesLoadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: theme.spacing.lg,
   },
   disciplinesLoadingText: {
@@ -498,9 +552,8 @@ const styles = StyleSheet.create({
   },
   disciplinesTitle: {
     fontSize: theme.typography.fontSize.md,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.black,
     marginBottom: theme.spacing.md,
   },
 });
-
