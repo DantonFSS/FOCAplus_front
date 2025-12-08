@@ -1,13 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { useForm, Controller } from 'react-hook-form';
-import { InputText } from '../components/InputText';
-import { DatePicker } from '../components/DatePicker';
-import { Button } from '../components/Button';
-import { theme } from '../theme';
-import { CourseResponse, coursesApi } from '../api/courses';
-import { periodsApi, PeriodTemplateResponse } from '../api/periods';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  Alert,
+  Modal,
+} from "react-native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
+import { useForm, Controller } from "react-hook-form";
+import { InputText } from "../components/InputText";
+import { DatePicker } from "../components/DatePicker";
+import { Button } from "../components/Button";
+import { theme } from "../theme";
+import { CourseResponse, coursesApi } from "../api/courses";
+import { periodsApi, PeriodTemplateResponse } from "../api/periods";
+import { BlurView } from "expo-blur";
 
 interface CourseInfoFormData {
   address: string;
@@ -19,35 +33,57 @@ interface CourseInfoFormData {
 
 // Converter data ISO para formato brasileiro
 const convertISOToDate = (isoDate: string): string => {
-  if (!isoDate) return '';
+  if (!isoDate) return "";
   const date = new Date(isoDate);
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
   const year = date.getFullYear();
   return `${day}/${month}/${year}`;
 };
 
 // Converter data brasileira (dd/mm/aaaa) para ISO
 const convertDateToISO = (dateStr: string): string | undefined => {
-  if (!dateStr || dateStr === 'dd/mm/aaaa') return undefined;
-  const [day, month, year] = dateStr.split('/');
+  if (!dateStr || dateStr === "dd/mm/aaaa") return undefined;
+  const [day, month, year] = dateStr.split("/");
   if (!day || !month || !year) return undefined;
   const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split("T")[0];
 };
 
 export const CourseInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const routeParams = route.params as any;
-  const createdCourse = routeParams?.createdCourse as CourseResponse | undefined;
+  const createdCourse = routeParams?.createdCourse as
+    | CourseResponse
+    | undefined;
   const courseId = routeParams?.courseId as string | undefined;
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
-  const [currentCourse, setCurrentCourse] = useState<CourseResponse | undefined>(createdCourse);
-  const [periodTemplates, setPeriodTemplates] = useState<PeriodTemplateResponse[]>([]);
+  const [currentCourse, setCurrentCourse] = useState<
+    CourseResponse | undefined
+  >(createdCourse);
+  const [periodTemplates, setPeriodTemplates] = useState<
+    PeriodTemplateResponse[]
+  >([]);
   const [isLoadingPeriods, setIsLoadingPeriods] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!currentCourse?.id) return;
+    setIsDeleting(true);
+    try {
+      await coursesApi.delete(currentCourse.id);
+      setShowDeleteConfirm(false);
+      (navigation as any).reset({ index: 0, routes: [{ name: "Home" }] });
+    } catch (error) {
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Buscar curso do banco se receber apenas o ID
   useEffect(() => {
@@ -65,10 +101,10 @@ export const CourseInfoScreen: React.FC = () => {
           const course = await coursesApi.getById(courseId);
           setCurrentCourse(course);
         } catch (error: any) {
-          console.error('❌ Erro ao buscar curso:', error);
+          console.error("❌ Erro ao buscar curso:", error);
           Alert.alert(
-            'Erro',
-            'Não foi possível carregar as informações do curso. Tente novamente.'
+            "Erro",
+            "Não foi possível carregar as informações do curso. Tente novamente."
           );
         } finally {
           setIsLoadingCourse(false);
@@ -89,19 +125,10 @@ export const CourseInfoScreen: React.FC = () => {
     setIsLoadingPeriods(true);
     try {
       const templates = await periodsApi.getTemplatesByCourse(currentCourse.id);
-      // Remover duplicatas por ID e por periodNumber
-      const uniqueTemplates = templates
-        .filter((template, index, self) => 
-          index === self.findIndex(t => t.id === template.id)
-        )
-        .filter((template, index, self) => 
-          index === self.findIndex(t => t.periodNumber === template.periodNumber)
-        )
-        .sort((a, b) => a.periodNumber - b.periodNumber);
-      setPeriodTemplates(uniqueTemplates);
-      console.log('✅ Períodos carregados:', uniqueTemplates.length, uniqueTemplates.map(t => `P${t.periodNumber}`));
+      
+      setPeriodTemplates(templates);
     } catch (error) {
-      console.error('❌ Erro ao carregar períodos:', error);
+      console.error("❌ Erro ao carregar períodos:", error);
       setPeriodTemplates([]);
     } finally {
       setIsLoadingPeriods(false);
@@ -127,11 +154,15 @@ export const CourseInfoScreen: React.FC = () => {
     reset,
   } = useForm<CourseInfoFormData>({
     defaultValues: {
-      address: currentCourse?.address || '',
-      contact: currentCourse?.phones?.[0] || currentCourse?.emails?.[0] || '',
+      address: currentCourse?.address || "",
+      contact: currentCourse?.phones?.[0] || currentCourse?.emails?.[0] || "",
       online: currentCourse?.online || false,
-      startDate: currentCourse?.startDate ? convertISOToDate(currentCourse.startDate) : '',
-      endDate: currentCourse?.endDate ? convertISOToDate(currentCourse.endDate) : '',
+      startDate: currentCourse?.startDate
+        ? convertISOToDate(currentCourse.startDate)
+        : "",
+      endDate: currentCourse?.endDate
+        ? convertISOToDate(currentCourse.endDate)
+        : "",
     },
   });
 
@@ -139,31 +170,35 @@ export const CourseInfoScreen: React.FC = () => {
   useEffect(() => {
     if (currentCourse) {
       reset({
-        address: currentCourse.address || '',
-        contact: currentCourse.phones?.[0] || currentCourse.emails?.[0] || '',
+        address: currentCourse.address || "",
+        contact: currentCourse.phones?.[0] || currentCourse.emails?.[0] || "",
         online: currentCourse.online || false,
-        startDate: currentCourse.startDate ? convertISOToDate(currentCourse.startDate) : '',
-        endDate: currentCourse.endDate ? convertISOToDate(currentCourse.endDate) : '',
+        startDate: currentCourse.startDate
+          ? convertISOToDate(currentCourse.startDate)
+          : "",
+        endDate: currentCourse.endDate
+          ? convertISOToDate(currentCourse.endDate)
+          : "",
       });
     }
   }, [currentCourse, reset]);
 
   const getLevelLabel = (level?: string): string => {
     const mapping: { [key: string]: string } = {
-      'UNDERGRADUATE': 'Superior',
-      'HIGH_SCHOOL': 'Ensino Médio',
-      'MASTER': 'Mestrado',
-      'DOCTORATE': 'Doutorado',
-      'FREE_COURSE': 'Curso Livre',
-      'PROFESSIONAL': 'Profissional',
-      'TECHNICAL': 'Técnico',
+      UNDERGRADUATE: "Superior",
+      HIGH_SCHOOL: "Ensino Médio",
+      MASTER: "Mestrado",
+      DOCTORATE: "Doutorado",
+      FREE_COURSE: "Curso Livre",
+      PROFESSIONAL: "Profissional",
+      TECHNICAL: "Técnico",
     };
-    return mapping[level || ''] || 'Superior';
+    return mapping[level || ""] || "Superior";
   };
 
   const onSubmit = async (data: CourseInfoFormData) => {
     if (!currentCourse?.id) {
-      Alert.alert('Erro', 'ID do curso não encontrado');
+      Alert.alert("Erro", "ID do curso não encontrado");
       return;
     }
 
@@ -181,20 +216,28 @@ export const CourseInfoScreen: React.FC = () => {
         endDate: endDateISO,
         // Se houver contato, pode ser telefone ou email
         // Por enquanto, vamos tratar como telefone se começar com número
-        phones: data.contact && /^\d/.test(data.contact) ? [data.contact] : undefined,
-        emails: data.contact && data.contact.includes('@') ? [data.contact] : undefined,
+        phones:
+          data.contact && /^\d/.test(data.contact) ? [data.contact] : undefined,
+        emails:
+          data.contact && data.contact.includes("@")
+            ? [data.contact]
+            : undefined,
       };
 
-      const updatedCourse = await coursesApi.updateInfo(currentCourse.id, updateData);
+      const updatedCourse = await coursesApi.updateInfo(
+        currentCourse.id,
+        updateData
+      );
       setCurrentCourse(updatedCourse);
       setIsEditing(false);
-      
-      Alert.alert('Sucesso', 'Informações do curso atualizadas com sucesso!');
+
+      Alert.alert("Sucesso", "Informações do curso atualizadas com sucesso!");
     } catch (error: any) {
-      console.error('❌ Erro ao salvar:', error);
+      console.error("❌ Erro ao salvar:", error);
       Alert.alert(
-        'Erro',
-        error?.response?.data?.message || 'Erro ao atualizar informações do curso. Tente novamente.'
+        "Erro",
+        error?.response?.data?.message ||
+          "Erro ao atualizar informações do curso. Tente novamente."
       );
     } finally {
       setIsLoading(false);
@@ -206,40 +249,12 @@ export const CourseInfoScreen: React.FC = () => {
     setIsEditing(false);
   };
 
-  // Criar períodos baseados no divisionsCount do curso
-  // Se houver períodos no backend, usar os IDs reais, senão criar períodos temporários
-  const divisionsCount = currentCourse?.divisionsCount || 0;
-  
-  // Garantir que não haja duplicatas - usar apenas periodNumber único
-  const periodsMap = new Map<number, { number: number; id: string | null }>();
-  
-  // Primeiro, adicionar períodos do backend (se existirem)
-  periodTemplates.forEach(template => {
-    if (template.periodNumber <= divisionsCount) {
-      periodsMap.set(template.periodNumber, {
-        number: template.periodNumber,
-        id: template.id,
-      });
-    }
-  });
-  
-  // Depois, preencher os períodos faltantes baseados no divisionsCount
-  for (let i = 1; i <= divisionsCount; i++) {
-    if (!periodsMap.has(i)) {
-      periodsMap.set(i, {
-        number: i,
-        id: null,
-      });
-    }
-  }
-  
-  // Converter para array e ordenar por número
-  const periods = Array.from(periodsMap.values()).sort((a, b) => a.number - b.number);
-
   if (isLoadingCourse) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <Text style={styles.loadingText}>Carregando informações do curso...</Text>
+        <Text style={styles.loadingText}>
+          Carregando informações do curso...
+        </Text>
       </View>
     );
   }
@@ -265,20 +280,20 @@ export const CourseInfoScreen: React.FC = () => {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Curso Info Editando' : 'Curso Info'}
+          {isEditing ? "Curso Info Editando" : "Curso Info"}
         </Text>
       </View>
 
       {/* Course Overview */}
       <View style={styles.courseOverview}>
         <View style={styles.courseIcon}>
-          <Text style={styles.courseIconText}>{'</>'}</Text>
+          <Text style={styles.courseIconText}>{"</>"}</Text>
         </View>
         <Text style={styles.courseName}>
-          {currentCourse?.name || 'Nome do Curso'}
+          {currentCourse?.name || "Nome do Curso"}
         </Text>
         <Text style={styles.institutionName}>
-          {currentCourse?.institutionName || 'Instituição'}
+          {currentCourse?.institutionName || "Instituição"}
         </Text>
         <Text style={styles.courseLevel}>
           {getLevelLabel(currentCourse?.level)}
@@ -290,7 +305,7 @@ export const CourseInfoScreen: React.FC = () => {
         {isEditing ? (
           <>
             <Text style={styles.editTitle}>Editar informações do curso</Text>
-            
+
             <View style={styles.row}>
               <View style={styles.column}>
                 <Controller
@@ -335,7 +350,10 @@ export const CourseInfoScreen: React.FC = () => {
                   <Switch
                     value={value}
                     onValueChange={onChange}
-                    trackColor={{ false: theme.colors.grayLight, true: theme.colors.blueLight }}
+                    trackColor={{
+                      false: theme.colors.grayLight,
+                      true: theme.colors.blueLight,
+                    }}
                     thumbColor={theme.colors.white}
                   />
                 )}
@@ -394,14 +412,16 @@ export const CourseInfoScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Endereço</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.address || 'Adicione um endereço...'}
+                {currentCourse?.address || "Adicione um endereço..."}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Contato</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.phones?.[0] || currentCourse?.emails?.[0] || 'Adicione um contato...'}
+                {currentCourse?.phones?.[0] ||
+                  currentCourse?.emails?.[0] ||
+                  "Adicione um contato..."}
               </Text>
             </View>
 
@@ -410,7 +430,10 @@ export const CourseInfoScreen: React.FC = () => {
               <Switch
                 value={currentCourse?.online || false}
                 disabled
-                trackColor={{ false: theme.colors.grayLight, true: theme.colors.blueLight }}
+                trackColor={{
+                  false: theme.colors.grayLight,
+                  true: theme.colors.blueLight,
+                }}
                 thumbColor={theme.colors.white}
               />
             </View>
@@ -418,14 +441,18 @@ export const CourseInfoScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Previsão de início</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.startDate ? convertISOToDate(currentCourse.startDate) : 'dd/mm/aaaa'}
+                {currentCourse?.startDate
+                  ? convertISOToDate(currentCourse.startDate)
+                  : "dd/mm/aaaa"}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Previsão de término</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.endDate ? convertISOToDate(currentCourse.endDate) : 'dd/mm/aaaa'}
+                {currentCourse?.endDate
+                  ? convertISOToDate(currentCourse.endDate)
+                  : "dd/mm/aaaa"}
               </Text>
             </View>
 
@@ -437,34 +464,54 @@ export const CourseInfoScreen: React.FC = () => {
             />
             <TouchableOpacity
               style={[styles.deleteButton, styles.deleteButtonTouchable]}
-              onPress={() => {
-                Alert.alert(
-                  'Excluir curso',
-                  `Tem certeza que deseja excluir o curso "${currentCourse?.name}"? Esta ação não pode ser desfeita e todos os períodos e disciplinas associados serão excluídos.`,
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    {
-                      text: 'Excluir',
-                      style: 'destructive',
-                      onPress: async () => {
-                        if (!currentCourse?.id) return;
-                        try {
-                          await coursesApi.delete(currentCourse.id);
-                          Alert.alert('Sucesso', 'Curso excluído com sucesso!');
-                          // Navegar de volta para Home
-                          (navigation as any).navigate('Home');
-                        } catch (error) {
-                          console.error('❌ Erro ao excluir curso:', error);
-                          Alert.alert('Erro', 'Não foi possível excluir o curso. Tente novamente.');
-                        }
-                      },
-                    },
-                  ]
-                );
-              }}
+              onPress={() => setShowDeleteConfirm(true)}
             >
               <Text style={styles.deleteButtonText}>Excluir curso</Text>
             </TouchableOpacity>
+
+            <Modal
+              visible={showDeleteConfirm}
+              transparent
+              animationType="fade"
+              statusBarTranslucent
+            >
+              <BlurView
+                intensity={40}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+              >
+                <View style={styles.modalOverlay}>
+                  <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Excluir curso</Text>
+                    <Text style={styles.modalBody}>
+                      Tem certeza que deseja excluir o curso "
+                      {currentCourse?.name}"? Esta ação não pode ser desfeita.
+                    </Text>
+
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalDeleteButton,
+                          isDeleting && styles.modalDeleteButtonDisabled,
+                        ]}
+                        onPress={handleDelete}
+                        disabled={isDeleting}
+                      >
+                        <Text style={styles.modalDeleteButtonText}>
+                          {isDeleting ? "Excluindo..." : "Sim, excluir"}
+                        </Text>
+                      </TouchableOpacity>
+                      <Button
+                        title="Cancelar"
+                        variant="secondary"
+                        onPress={() => setShowDeleteConfirm(false)}
+                        style={styles.modalButton}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </BlurView>
+            </Modal>
           </>
         )}
       </View>
@@ -475,34 +522,36 @@ export const CourseInfoScreen: React.FC = () => {
         <View style={styles.periodsGrid}>
           {isLoadingPeriods ? (
             <View style={styles.periodsLoadingContainer}>
-              <Text style={styles.periodsLoadingText}>Carregando períodos...</Text>
+              <Text style={styles.periodsLoadingText}>
+                Carregando períodos...
+              </Text>
             </View>
-          ) : periods.length > 0 ? (
-            periods.map((period, index) => {
-              const periodTemplate = periodTemplates.find(t => t.id === period.id);
+          ) : periodTemplates.length > 0 ? (
+            periodTemplates.map((period, index) => {
+              const periodTemplate = periodTemplates.find(
+                (t) => t.id === period.id
+              );
               return (
                 <TouchableOpacity
-                  key={`period-${period.number}-${index}`}
+                  key={`period-${period.position}-${index}`}
                   style={styles.periodButton}
                   onPress={() => {
                     // Navegar para informações do período (tela de edição)
-                    (navigation as any).navigate('PeriodInfo', {
-                      periodNumber: period.number,
+                    (navigation as any).navigate("PeriodInfo", {
                       periodTemplateId: period.id,
-                      createdCourse: currentCourse,
-                      startDate: periodTemplate?.startDate ? convertISOToDate(periodTemplate.startDate) : '',
-                      endDate: periodTemplate?.endDate ? convertISOToDate(periodTemplate.endDate) : '',
-                      disciplines: [],
+                      courseId: currentCourse.id,
                     });
                   }}
                 >
-                  <Text style={styles.periodButtonText}>Período {period.number}</Text>
+                  <Text style={styles.periodButtonText}>{period.name}</Text>
                 </TouchableOpacity>
               );
             })
           ) : (
             <View style={styles.periodsEmptyContainer}>
-              <Text style={styles.periodsEmptyText}>Nenhum período encontrado</Text>
+              <Text style={styles.periodsEmptyText}>
+                Nenhum período encontrado
+              </Text>
             </View>
           )}
         </View>
@@ -513,7 +562,7 @@ export const CourseInfoScreen: React.FC = () => {
         title="Finalizar"
         onPress={() => {
           // Navegar para Home após finalizar
-          (navigation as any).navigate('Home');
+          (navigation as any).navigate("Home");
         }}
         variant="primary"
         style={styles.finalizeButton}
@@ -533,8 +582,8 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.xl,
   },
   backArrow: {
@@ -544,11 +593,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.black,
   },
   courseOverview: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.xl,
   },
   courseIcon: {
@@ -556,27 +605,27 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: theme.colors.blueLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
   },
   courseIconText: {
     fontSize: theme.typography.fontSize.xxl,
     color: theme.colors.white,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   courseName: {
     fontSize: theme.typography.fontSize.xxl,
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.black,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: theme.spacing.xs,
   },
   institutionName: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.gray,
     marginBottom: theme.spacing.xs,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   courseLevel: {
     fontSize: theme.typography.fontSize.md,
@@ -592,14 +641,14 @@ const styles = StyleSheet.create({
   },
   editTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.black,
     marginBottom: theme.spacing.lg,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
@@ -608,38 +657,38 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.grayDark,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   infoValue: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.gray,
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
     marginLeft: theme.spacing.md,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: theme.spacing.lg,
     gap: theme.spacing.md,
-    width: '100%',
+    width: "100%",
   },
   column: {
     flex: 1,
     minWidth: 0, // Permite que o flex shrink funcione corretamente
-    maxWidth: '50%',
-    overflow: 'hidden',
+    maxWidth: "50%",
+    overflow: "hidden",
   },
   columnLast: {
     flex: 1,
     minWidth: 0, // Permite que o flex shrink funcione corretamente
-    maxWidth: '50%',
-    overflow: 'hidden',
+    maxWidth: "50%",
+    overflow: "hidden",
   },
   switchContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
@@ -648,13 +697,13 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.grayDark,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   inputContainer: {
     marginBottom: 0,
   },
   editButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
     marginTop: theme.spacing.md,
   },
@@ -677,10 +726,10 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 50,
-    width: '100%',
+    width: "100%",
     shadowColor: theme.colors.redBad,
     shadowOffset: {
       width: 0,
@@ -692,7 +741,7 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: theme.typography.fontSize.md,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.white,
   },
   periodsSection: {
@@ -700,37 +749,37 @@ const styles = StyleSheet.create({
   },
   periodsTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.black,
     marginBottom: theme.spacing.md,
   },
   periodsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   periodButton: {
     backgroundColor: theme.colors.blueLight,
     borderRadius: theme.borderRadius.md,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    width: '48%',
+    width: "48%",
     marginBottom: theme.spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 50,
   },
   periodButtonText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   finalizeButton: {
     marginTop: theme.spacing.lg,
   },
   loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: theme.spacing.xl,
   },
   loadingText: {
@@ -739,8 +788,8 @@ const styles = StyleSheet.create({
   },
   periodsLoadingContainer: {
     paddingVertical: theme.spacing.lg,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   periodsLoadingText: {
     fontSize: theme.typography.fontSize.md,
@@ -748,12 +797,85 @@ const styles = StyleSheet.create({
   },
   periodsEmptyContainer: {
     paddingVertical: theme.spacing.lg,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   periodsEmptyText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.gray,
   },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(8, 16, 32, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+    width: "100%",
+    height: "100%",
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg * 1.5,
+    width: "90%",
+    maxWidth: 360,
+    alignItems: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: "700",
+    color: theme.colors.black,
+    textAlign: "center",
+    marginBottom: theme.spacing.md,
+  },
+  modalBody: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.grayDark,
+    textAlign: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  modalActions: {
+    flexDirection: "column",
+    gap: theme.spacing.md,
+    width: "100%",
+  },
+  modalButton: {
+    width: "100%",
+  },
+  modalDeleteButton: {
+    backgroundColor: theme.colors.redBad,
+    borderColor: theme.colors.redBad,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
+    width: "100%",
+    shadowColor: theme.colors.redBad,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  modalDeleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalDeleteButtonText: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: "600",
+    color: theme.colors.white,
+  },
 });
-

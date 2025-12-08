@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import {
   useNavigation,
@@ -19,6 +20,8 @@ import { Button } from "../components/Button";
 import { theme } from "../theme";
 import { periodsApi, PeriodTemplateResponse } from "../api/periods";
 import { disciplinesApi, DisciplineTemplateResponse } from "../api/disciplines";
+import { BlurView } from "expo-blur";
+import { InputText } from "../components/InputText";
 
 interface PeriodInfoFormData {
   startDate: string;
@@ -28,11 +31,10 @@ interface PeriodInfoFormData {
 export const PeriodInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const periodNumber = (route.params as any)?.periodNumber || 1;
-  const createdCourse = (route.params as any)?.createdCourse;
-  const periodTemplateId = (route.params as any)?.periodTemplateId;
-  const initialStartDate = (route.params as any)?.startDate || "";
-  const initialEndDate = (route.params as any)?.endDate || "";
+  const { periodTemplateId, courseId } = route.params as {
+    periodTemplateId: string;
+    courseId: string;
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [periodTemplate, setPeriodTemplate] =
@@ -42,6 +44,9 @@ export const PeriodInfoScreen: React.FC = () => {
     []
   );
   const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
+  const [showAddDisciplineModal, setShowAddDisciplineModal] = useState(false);
+  const [newDisciplineName, setNewDisciplineName] = useState("");
+  const [isSavingDiscipline, setIsSavingDiscipline] = useState(false);
 
   const {
     control,
@@ -51,71 +56,43 @@ export const PeriodInfoScreen: React.FC = () => {
     setValue,
   } = useForm<PeriodInfoFormData>({
     defaultValues: {
-      startDate: initialStartDate,
-      endDate: initialEndDate,
+      startDate: "",
+      endDate: "",
     },
   });
 
   // Buscar período do backend
   useEffect(() => {
     const loadPeriod = async () => {
-      // Se tiver periodTemplateId, buscar diretamente (mais eficiente)
-      if (periodTemplateId) {
-        setIsLoadingPeriod(true);
-        try {
-          const template = await periodsApi.getTemplateById(periodTemplateId);
-
-          if (template) {
-            setPeriodTemplate(template);
-            // Converter datas ISO para formato dd/mm/aaaa
-            if (template.startDate) {
-              const startDate = convertDateFromISO(template.startDate);
-              setValue("startDate", startDate);
-            }
-            if (template.endDate) {
-              const endDate = convertDateFromISO(template.endDate);
-              setValue("endDate", endDate);
-            }
-          }
-        } catch (error) {
-          console.error("❌ Erro ao carregar período:", error);
-        } finally {
-          setIsLoadingPeriod(false);
-        }
+      if (!periodTemplateId) {
+        console.warn("⚠️ Nenhum periodTemplateId foi recebido pela rota.");
         return;
       }
 
-      // Fallback: buscar pela lista se não tiver periodTemplateId
-      if (!createdCourse?.id) return;
-
       setIsLoadingPeriod(true);
       try {
-        const templates = await periodsApi.getTemplatesByCourse(
-          createdCourse.id
-        );
-        const template = templates.find((t) => t.periodNumber === periodNumber);
+        const template = await periodsApi.getTemplateById(periodTemplateId);
 
-        if (template) {
-          setPeriodTemplate(template);
-          // Converter datas ISO para formato dd/mm/aaaa
-          if (template.startDate) {
-            const startDate = convertDateFromISO(template.startDate);
-            setValue("startDate", startDate);
-          }
-          if (template.endDate) {
-            const endDate = convertDateFromISO(template.endDate);
-            setValue("endDate", endDate);
-          }
+        console.log("✅ Período carregado do backend:", template);
+        setPeriodTemplate(template);
+
+        if (template.plannedStart) {
+          setValue("startDate", convertDateFromISO(template.plannedStart));
+        }
+
+        if (template.plannedEnd) {
+          setValue("endDate", convertDateFromISO(template.plannedEnd));
         }
       } catch (error) {
         console.error("❌ Erro ao carregar período:", error);
+        Alert.alert("Erro", "Não foi possível carregar o período.");
       } finally {
         setIsLoadingPeriod(false);
       }
     };
 
     loadPeriod();
-  }, [periodTemplateId, createdCourse?.id, periodNumber, setValue]);
+  }, [periodTemplateId, setValue]);
 
   // Carregar disciplinas do backend
   const loadDisciplines = React.useCallback(async () => {
@@ -173,8 +150,8 @@ export const PeriodInfoScreen: React.FC = () => {
   };
 
   const onSubmit = async (data: PeriodInfoFormData) => {
-    if (!createdCourse?.id) {
-      Alert.alert("Erro", "Curso não encontrado");
+    if (!periodTemplate?.id) {
+      Alert.alert("Erro", "Período não encontrado");
       return;
     }
 
@@ -183,52 +160,32 @@ export const PeriodInfoScreen: React.FC = () => {
       const startDateISO = convertDateToISO(data.startDate);
       const endDateISO = convertDateToISO(data.endDate);
 
-      console.log("📝 Salvando período com dados:")
-      if (periodTemplate?.id) {
-        console.log(` - Atualizando período ID ${periodTemplate.id}`);
-        // Atualizar período existente
-        const updated = await periodsApi.updateTemplate(periodTemplate.id, {
-          startDate: startDateISO,
-          endDate: endDateISO,
-        });
+      console.log("📝 Atualizando período:", periodTemplate.id);
 
-        console.log("✅ Período atualizado:", updated);
+      const updated = await periodsApi.updateTemplate(periodTemplate.id, {
+        startDate: startDateISO,
+        endDate: endDateISO,
+      });
 
-        setPeriodTemplate(updated);
+      setPeriodTemplate(updated);
 
-        // Atualiza os inputs também
-        reset({
-          startDate: updated.startDate
-            ? convertDateFromISO(updated.startDate)
-            : "",
-          endDate: updated.endDate ? convertDateFromISO(updated.endDate) : "",
-        });
+      reset({
+        startDate: updated.plannedStart
+          ? convertDateFromISO(updated.plannedStart)
+          : "",
+        endDate: updated.plannedEnd
+          ? convertDateFromISO(updated.plannedEnd)
+          : "",
+      });
 
-        console.log("✅ Formulário atualizado com novos dados.");
-
-        Alert.alert(
-          "Sucesso",
-          "Informações do período atualizadas com sucesso!"
-        );
-      } else {
-        // Criar novo período template
-        const newTemplate = await periodsApi.createTemplate({
-          courseTemplateId: createdCourse.id,
-          periodNumber,
-          startDate: startDateISO,
-          endDate: endDateISO,
-        });
-        setPeriodTemplate(newTemplate);
-        Alert.alert("Sucesso", "Período criado com sucesso!");
-      }
-
+      Alert.alert("Sucesso", "Período atualizado com sucesso!");
       setIsEditing(false);
     } catch (error: any) {
       console.error("❌ Erro ao salvar período:", error);
       Alert.alert(
         "Erro",
         error.response?.data?.message ||
-          "Erro ao salvar informações do período. Tente novamente."
+          "Erro ao salvar informações do período."
       );
     } finally {
       setIsLoading(false);
@@ -240,23 +197,46 @@ export const PeriodInfoScreen: React.FC = () => {
     setIsEditing(false);
   };
 
-  const handleAddDisciplines = () => {
+  const handleSaveDiscipline = async () => {
     const effectivePeriodTemplateId = periodTemplate?.id || periodTemplateId;
 
+    console.log(
+      "📝 Salvando nova effectivePeriodTemplateId:",
+      effectivePeriodTemplateId
+    );
+
     if (!effectivePeriodTemplateId) {
-      Alert.alert(
-        "Erro",
-        "Período não encontrado. Por favor, aguarde o carregamento do período."
-      );
+      Alert.alert("Erro", "Período não encontrado.");
       return;
     }
 
-    (navigation as any).navigate("AddDisciplines", {
-      periodNumber,
-      createdCourse,
-      periodTemplateId: effectivePeriodTemplateId,
-      existingDisciplines: disciplines,
-    });
+    if (!newDisciplineName.trim()) return;
+
+    setIsSavingDiscipline(true);
+
+    console.log("📝 Criando disciplina:", newDisciplineName.trim());
+
+    try {
+      const created = await disciplinesApi.create({
+        periodTemplateId: effectivePeriodTemplateId,
+        name: newDisciplineName.trim(),
+      });
+
+      // Atualiza lista imediatamente na tela (sem precisar recarregar tudo)
+      setDisciplines((prev) => [...prev, created]);
+
+      // Limpa e fecha modal
+      setNewDisciplineName("");
+      setShowAddDisciplineModal(false);
+    } catch (error: any) {
+      console.error("❌ Erro ao criar disciplina:", error);
+      Alert.alert(
+        "Erro",
+        error.response?.data?.message || "Erro ao criar disciplina."
+      );
+    } finally {
+      setIsSavingDiscipline(false);
+    }
   };
 
   return (
@@ -273,9 +253,9 @@ export const PeriodInfoScreen: React.FC = () => {
       {/* Period Overview */}
       <View style={styles.periodOverview}>
         <View style={styles.periodNumberCircle}>
-          <Text style={styles.periodNumber}>{periodNumber}</Text>
+          <Text style={styles.periodNumber}>{periodTemplate?.position}</Text>
         </View>
-        <Text style={styles.periodTitle}>Período {periodNumber}</Text>
+        <Text style={styles.periodTitle}>{periodTemplate?.name}</Text>
       </View>
 
       {/* Information Card */}
@@ -347,18 +327,18 @@ export const PeriodInfoScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Previsão de início</Text>
                   <Text style={styles.infoValue}>
-                    {periodTemplate?.startDate
-                      ? convertDateFromISO(periodTemplate.startDate)
-                      : initialStartDate || "dd/mm/aaaa"}
+                    {periodTemplate?.plannedStart
+                      ? convertDateFromISO(periodTemplate.plannedStart)
+                      : "dd/mm/aaaa"}
                   </Text>
                 </View>
 
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Previsão de término</Text>
                   <Text style={styles.infoValue}>
-                    {periodTemplate?.endDate
-                      ? convertDateFromISO(periodTemplate.endDate)
-                      : initialEndDate || "dd/mm/aaaa"}
+                    {periodTemplate?.plannedEnd
+                      ? convertDateFromISO(periodTemplate.plannedEnd)
+                      : "dd/mm/aaaa"}
                   </Text>
                 </View>
 
@@ -377,10 +357,51 @@ export const PeriodInfoScreen: React.FC = () => {
       {/* Add Disciplines Button */}
       <Button
         title="+ Adicionar disciplinas"
-        onPress={handleAddDisciplines}
+        onPress={() => setShowAddDisciplineModal(true)}
         variant="primary"
         style={styles.addDisciplinesButton}
       />
+
+      <Modal
+        visible={showAddDisciplineModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Adicionar disciplina</Text>
+
+              <InputText
+                label="Nome da disciplina"
+                placeholder="Ex: Matemática"
+                value={newDisciplineName}
+                onChangeText={setNewDisciplineName}
+                variant="light"
+              />
+
+              <View style={styles.modalActions}>
+                <Button
+                  title={isSavingDiscipline ? "Salvando..." : "Salvar"}
+                  variant="primary"
+                  onPress={handleSaveDiscipline}
+                  disabled={!newDisciplineName.trim() || isSavingDiscipline}
+                />
+
+                <Button
+                  title="Cancelar"
+                  variant="secondary"
+                  onPress={() => {
+                    setNewDisciplineName("");
+                    setShowAddDisciplineModal(false);
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
 
       {/* Disciplines List */}
       {isLoadingDisciplines ? (
@@ -555,5 +576,43 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: theme.colors.black,
     marginBottom: theme.spacing.md,
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(8, 16, 32, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+    width: "100%",
+    height: "100%",
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg * 1.5,
+    width: "90%",
+    maxWidth: 360,
+    alignItems: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: "700",
+    color: theme.colors.black,
+    textAlign: "center",
+    marginBottom: theme.spacing.md,
+  },
+  modalActions: {
+    flexDirection: "column",
+    gap: theme.spacing.md,
+    width: "100%",
   },
 });

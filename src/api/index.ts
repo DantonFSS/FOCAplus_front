@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Para web, pode ser necessário usar 127.0.0.1 ao invés de localhost
 // ou configurar CORS no backend
-//export const API_BASE_URL = 'https://focaplus-back.onrender.com/api/v1';
-export const API_BASE_URL = 'http://localhost:8080/api/v1';
+export const API_BASE_URL = 'https://focaplus-back.onrender.com/api/v1';
+//export const API_BASE_URL = 'http://localhost:8080/api/v1';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

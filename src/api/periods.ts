@@ -15,10 +15,10 @@ export interface UpdatePeriodTemplateRequest {
 
 export interface PeriodTemplateResponse {
   id: string;
-  courseTemplateId: string;
-  periodNumber: number;
-  startDate?: string;
-  endDate?: string;
+  name: string;
+  position: number;        
+  plannedStart: string;   
+  plannedEnd: string;     
 }
 
 export interface CreatePeriodInstanceRequest {

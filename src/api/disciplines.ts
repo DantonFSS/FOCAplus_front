@@ -4,7 +4,6 @@ import { apiClient } from './index';
 export interface CreateDisciplineTemplateRequest {
   periodTemplateId: string;
   name: string;
-  notes?: string;
 }
 
 export interface BatchCreateDisciplineTemplateRequest {

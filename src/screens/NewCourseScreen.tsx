@@ -95,27 +95,6 @@ export const NewCourseScreen: React.FC = () => {
       const createdCourse = await coursesApi.create(courseData);
       console.log('✅ Curso criado com sucesso:', createdCourse);
 
-      // Criar períodos templates automaticamente baseado no divisionsCount
-      if (createdCourse.id && courseData.divisionsCount > 0) {
-        try {
-          console.log('📝 Criando períodos templates...');
-          const periodPromises = [];
-          for (let i = 1; i <= courseData.divisionsCount; i++) {
-            periodPromises.push(
-              periodsApi.createTemplate({
-                courseTemplateId: createdCourse.id,
-                periodNumber: i,
-              })
-            );
-          }
-          await Promise.all(periodPromises);
-          console.log(`✅ ${courseData.divisionsCount} período(s) criado(s) com sucesso!`);
-        } catch (periodError) {
-          console.error('⚠️ Erro ao criar períodos (curso já foi criado):', periodError);
-          // Não bloquear a navegação se houver erro ao criar períodos
-        }
-      }
-
       // Navegar diretamente para CourseInfo com o curso criado
       (navigation as any).navigate('CourseInfo', {
         createdCourse: createdCourse,
