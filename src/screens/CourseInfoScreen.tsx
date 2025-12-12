@@ -20,7 +20,9 @@ import { DatePicker } from "../components/DatePicker";
 import { Button } from "../components/Button";
 import { theme } from "../theme";
 import { CourseResponse, coursesApi } from "../api/courses";
+import { userCoursesApi, UserCourseResponse } from "../api/userCourses";
 import { periodsApi, PeriodTemplateResponse } from "../api/periods";
+import { periodInstancesApi, PeriodInstanceResponse } from "../api/periodInstances";
 import { BlurView } from "expo-blur";
 
 interface CourseInfoFormData {
@@ -30,6 +32,11 @@ interface CourseInfoFormData {
   startDate: string;
   endDate: string;
 }
+
+// Tipo union para períodos (template ou instance)
+type PeriodData = (PeriodTemplateResponse | PeriodInstanceResponse) & {
+  isTemplate?: boolean;
+};
 
 // Converter data ISO para formato brasileiro
 const convertISOToDate = (isoDate: string): string => {
@@ -54,28 +61,29 @@ export const CourseInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const routeParams = route.params as any;
-  const createdCourse = routeParams?.createdCourse as
-    | CourseResponse
-    | undefined;
-  const courseId = routeParams?.courseId as string | undefined;
+  const userCourseId = routeParams?.userCourseId as string | undefined;
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
-  const [currentCourse, setCurrentCourse] = useState<
-    CourseResponse | undefined
-  >(createdCourse);
-  const [periodTemplates, setPeriodTemplates] = useState<
-    PeriodTemplateResponse[]
-  >([]);
+  const [currentUserCourse, setCurrentUserCourse] = useState<
+    UserCourseResponse | undefined
+  >(undefined);
+  const [periods, setPeriods] = useState<PeriodData[]>([]);
   const [isLoadingPeriods, setIsLoadingPeriods] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!currentCourse?.id) return;
+    if (!currentUserCourse?.templateId) return;
     setIsDeleting(true);
     try {
-      await coursesApi.delete(currentCourse.id);
+      // Se for OWNER, deleta o template (arquiva se >1 usuário, deleta se =1)
+      // Se for MEMBER, deleta apenas o vínculo
+      if (currentUserCourse.role === 'OWNER') {
+        await coursesApi.delete(currentUserCourse.templateId);
+      } else {
+        await userCoursesApi.delete(currentUserCourse.userCourseId);
+      }
       setShowDeleteConfirm(false);
       (navigation as any).reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (error) {
@@ -85,55 +93,54 @@ export const CourseInfoScreen: React.FC = () => {
     }
   };
 
-  // Buscar curso do banco se receber apenas o ID
+  // Buscar UserCourse do banco
   useEffect(() => {
-    const fetchCourse = async () => {
-      // Se já temos o curso completo, não precisa buscar
-      if (createdCourse) {
-        setCurrentCourse(createdCourse);
-        return;
-      }
+    const fetchUserCourse = async () => {
+      if (!userCourseId) return;
 
-      // Se temos apenas o ID, buscar do banco
-      if (courseId && !createdCourse) {
-        setIsLoadingCourse(true);
-        try {
-          const course = await coursesApi.getById(courseId);
-          setCurrentCourse(course);
-        } catch (error: any) {
-          console.error("❌ Erro ao buscar curso:", error);
-          Alert.alert(
-            "Erro",
-            "Não foi possível carregar as informações do curso. Tente novamente."
-          );
-        } finally {
-          setIsLoadingCourse(false);
-        }
+      setIsLoadingCourse(true);
+      try {
+        const userCourse = await userCoursesApi.getById(userCourseId);
+        setCurrentUserCourse(userCourse);
+      } catch (error: any) {
+        console.error("❌ Erro ao buscar curso:", error);
+        Alert.alert(
+          "Erro",
+          "Não foi possível carregar as informações do curso. Tente novamente."
+        );
+      } finally {
+        setIsLoadingCourse(false);
       }
     };
 
-    fetchCourse();
-  }, [courseId, createdCourse]);
+    fetchUserCourse();
+  }, [userCourseId]);
 
-  // Função para carregar períodos
+  // Função para carregar períodos (template para OWNER, instance para MEMBER)
   const loadPeriods = React.useCallback(async () => {
-    if (!currentCourse?.id) {
-      setPeriodTemplates([]);
+    if (!currentUserCourse) {
+      setPeriods([]);
       return;
     }
 
     setIsLoadingPeriods(true);
     try {
-      const templates = await periodsApi.getTemplatesByCourse(currentCourse.id);
-      
-      setPeriodTemplates(templates);
+      if (currentUserCourse.role === 'OWNER') {
+        // OWNER: busca templates do curso
+        const templates = await periodsApi.getTemplatesByCourse(currentUserCourse.templateId);
+        setPeriods(templates.map(t => ({ ...t, isTemplate: true })));
+      } else {
+        // MEMBER: busca instances do userCourse
+        const instances = await periodInstancesApi.getByUserCourse(currentUserCourse.userCourseId);
+        setPeriods(instances.map(i => ({ ...i, isTemplate: false })));
+      }
     } catch (error) {
       console.error("❌ Erro ao carregar períodos:", error);
-      setPeriodTemplates([]);
+      setPeriods([]);
     } finally {
       setIsLoadingPeriods(false);
     }
-  }, [currentCourse?.id]);
+  }, [currentUserCourse]);
 
   // Carregar períodos quando o curso mudar
   useEffect(() => {
@@ -154,34 +161,34 @@ export const CourseInfoScreen: React.FC = () => {
     reset,
   } = useForm<CourseInfoFormData>({
     defaultValues: {
-      address: currentCourse?.address || "",
-      contact: currentCourse?.phones?.[0] || currentCourse?.emails?.[0] || "",
-      online: currentCourse?.online || false,
-      startDate: currentCourse?.startDate
-        ? convertISOToDate(currentCourse.startDate)
+      address: currentUserCourse?.address || "",
+      contact: currentUserCourse?.phones?.[0] || currentUserCourse?.emails?.[0] || "",
+      online: currentUserCourse?.online || false,
+      startDate: currentUserCourse?.startDate
+        ? convertISOToDate(currentUserCourse.startDate)
         : "",
-      endDate: currentCourse?.endDate
-        ? convertISOToDate(currentCourse.endDate)
+      endDate: currentUserCourse?.endDate
+        ? convertISOToDate(currentUserCourse.endDate)
         : "",
     },
   });
 
   // Atualizar valores do formulário quando o curso for carregado
   useEffect(() => {
-    if (currentCourse) {
+    if (currentUserCourse) {
       reset({
-        address: currentCourse.address || "",
-        contact: currentCourse.phones?.[0] || currentCourse.emails?.[0] || "",
-        online: currentCourse.online || false,
-        startDate: currentCourse.startDate
-          ? convertISOToDate(currentCourse.startDate)
+        address: currentUserCourse.address || "",
+        contact: currentUserCourse.phones?.[0] || currentUserCourse.emails?.[0] || "",
+        online: currentUserCourse.online || false,
+        startDate: currentUserCourse.startDate
+          ? convertISOToDate(currentUserCourse.startDate)
           : "",
-        endDate: currentCourse.endDate
-          ? convertISOToDate(currentCourse.endDate)
+        endDate: currentUserCourse.endDate
+          ? convertISOToDate(currentUserCourse.endDate)
           : "",
       });
     }
-  }, [currentCourse, reset]);
+  }, [currentUserCourse, reset]);
 
   const getLevelLabel = (level?: string): string => {
     const mapping: { [key: string]: string } = {
@@ -197,7 +204,7 @@ export const CourseInfoScreen: React.FC = () => {
   };
 
   const onSubmit = async (data: CourseInfoFormData) => {
-    if (!currentCourse?.id) {
+    if (!currentUserCourse?.userCourseId) {
       Alert.alert("Erro", "ID do curso não encontrado");
       return;
     }
@@ -209,13 +216,13 @@ export const CourseInfoScreen: React.FC = () => {
       const endDateISO = convertDateToISO(data.endDate);
 
       // Preparar dados para atualização
+      // O backend vai decidir se altera o template baseado no role
       const updateData = {
         address: data.address || undefined,
         online: data.online,
         startDate: startDateISO,
         endDate: endDateISO,
         // Se houver contato, pode ser telefone ou email
-        // Por enquanto, vamos tratar como telefone se começar com número
         phones:
           data.contact && /^\d/.test(data.contact) ? [data.contact] : undefined,
         emails:
@@ -224,11 +231,11 @@ export const CourseInfoScreen: React.FC = () => {
             : undefined,
       };
 
-      const updatedCourse = await coursesApi.updateInfo(
-        currentCourse.id,
+      const updatedUserCourse = await userCoursesApi.update(
+        currentUserCourse.userCourseId,
         updateData
       );
-      setCurrentCourse(updatedCourse);
+      setCurrentUserCourse(updatedUserCourse);
       setIsEditing(false);
 
       Alert.alert("Sucesso", "Informações do curso atualizadas com sucesso!");
@@ -259,7 +266,7 @@ export const CourseInfoScreen: React.FC = () => {
     );
   }
 
-  if (!currentCourse) {
+  if (!currentUserCourse) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <Text style={styles.loadingText}>Curso não encontrado</Text>
@@ -290,13 +297,13 @@ export const CourseInfoScreen: React.FC = () => {
           <Text style={styles.courseIconText}>{"</>"}</Text>
         </View>
         <Text style={styles.courseName}>
-          {currentCourse?.name || "Nome do Curso"}
+          {currentUserCourse?.name || "Nome do Curso"}
         </Text>
         <Text style={styles.institutionName}>
-          {currentCourse?.institutionName || "Instituição"}
+          {currentUserCourse?.institutionName || "Instituição"}
         </Text>
         <Text style={styles.courseLevel}>
-          {getLevelLabel(currentCourse?.level)}
+          {getLevelLabel(currentUserCourse?.level)}
         </Text>
       </View>
 
@@ -412,15 +419,15 @@ export const CourseInfoScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Endereço</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.address || "Adicione um endereço..."}
+                {currentUserCourse?.address || "Adicione um endereço..."}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Contato</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.phones?.[0] ||
-                  currentCourse?.emails?.[0] ||
+                {currentUserCourse?.phones?.[0] ||
+                  currentUserCourse?.emails?.[0] ||
                   "Adicione um contato..."}
               </Text>
             </View>
@@ -428,7 +435,7 @@ export const CourseInfoScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>EAD/Online</Text>
               <Switch
-                value={currentCourse?.online || false}
+                value={currentUserCourse?.online || false}
                 disabled
                 trackColor={{
                   false: theme.colors.grayLight,
@@ -441,8 +448,8 @@ export const CourseInfoScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Previsão de início</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.startDate
-                  ? convertISOToDate(currentCourse.startDate)
+                {currentUserCourse?.startDate
+                  ? convertISOToDate(currentUserCourse.startDate)
                   : "dd/mm/aaaa"}
               </Text>
             </View>
@@ -450,8 +457,8 @@ export const CourseInfoScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Previsão de término</Text>
               <Text style={styles.infoValue}>
-                {currentCourse?.endDate
-                  ? convertISOToDate(currentCourse.endDate)
+                {currentUserCourse?.endDate
+                  ? convertISOToDate(currentUserCourse.endDate)
                   : "dd/mm/aaaa"}
               </Text>
             </View>
@@ -466,7 +473,9 @@ export const CourseInfoScreen: React.FC = () => {
               style={[styles.deleteButton, styles.deleteButtonTouchable]}
               onPress={() => setShowDeleteConfirm(true)}
             >
-              <Text style={styles.deleteButtonText}>Excluir curso</Text>
+              <Text style={styles.deleteButtonText}>
+                {currentUserCourse?.role === 'OWNER' ? 'Excluir curso' : 'Sair do curso'}
+              </Text>
             </TouchableOpacity>
 
             <Modal
@@ -482,10 +491,13 @@ export const CourseInfoScreen: React.FC = () => {
               >
                 <View style={styles.modalOverlay}>
                   <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Excluir curso</Text>
+                    <Text style={styles.modalTitle}>
+                      {currentUserCourse?.role === 'OWNER' ? 'Excluir curso' : 'Sair do curso'}
+                    </Text>
                     <Text style={styles.modalBody}>
-                      Tem certeza que deseja excluir o curso "
-                      {currentCourse?.name}"? Esta ação não pode ser desfeita.
+                      {currentUserCourse?.role === 'OWNER'
+                        ? `Tem certeza que deseja excluir o curso "${currentUserCourse?.name}"? Esta ação não pode ser desfeita.`
+                        : `Tem certeza que deseja sair do curso "${currentUserCourse?.name}"? Você poderá entrar novamente usando o código de compartilhamento.`}
                     </Text>
 
                     <View style={styles.modalActions}>
@@ -498,7 +510,9 @@ export const CourseInfoScreen: React.FC = () => {
                         disabled={isDeleting}
                       >
                         <Text style={styles.modalDeleteButtonText}>
-                          {isDeleting ? "Excluindo..." : "Sim, excluir"}
+                          {isDeleting
+                            ? (currentUserCourse?.role === 'OWNER' ? 'Excluindo...' : 'Saindo...')
+                            : (currentUserCourse?.role === 'OWNER' ? 'Sim, excluir' : 'Sim, sair')}
                         </Text>
                       </TouchableOpacity>
                       <Button
@@ -526,20 +540,19 @@ export const CourseInfoScreen: React.FC = () => {
                 Carregando períodos...
               </Text>
             </View>
-          ) : periodTemplates.length > 0 ? (
-            periodTemplates.map((period, index) => {
-              const periodTemplate = periodTemplates.find(
-                (t) => t.id === period.id
-              );
+          ) : periods.length > 0 ? (
+            periods.map((period) => {
               return (
                 <TouchableOpacity
-                  key={`period-${period.position}-${index}`}
+                  key={period.id}
                   style={styles.periodButton}
                   onPress={() => {
                     // Navegar para informações do período (tela de edição)
                     (navigation as any).navigate("PeriodInfo", {
-                      periodTemplateId: period.id,
-                      courseId: currentCourse.id,
+                      periodId: period.id,
+                      isTemplate: period.isTemplate,
+                      userCourseId: currentUserCourse.userCourseId,
+                      courseId: currentUserCourse.templateId,
                     });
                   }}
                 >

@@ -9,6 +9,7 @@ import { disciplineSchedulesApi, DisciplineScheduleResponse } from '../api/disci
 import { disciplineTeachersApi, DisciplineTeacherResponse } from '../api/disciplineTeachers';
 import { assessmentsApi, AssessmentResponse } from '../api/assessments';
 import { tasksApi, TaskResponse } from '../api/tasks';
+import { scoresApi } from '../api/scores';
 import { Alert } from 'react-native';
 
 interface Schedule {
@@ -20,11 +21,11 @@ interface Schedule {
 export const DisciplineInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const disciplineId = (route.params as any)?.disciplineId;
-  const disciplineName = (route.params as any)?.disciplineName || 'Lógica de Programação';
+  const { disciplineId } = route.params as { disciplineId: string };
   const [discipline, setDiscipline] = useState<DisciplineInstanceResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [totalScore] = useState(130);
+  const [totalScore, setTotalScore] = useState(0);
+  const [isLoadingScore, setIsLoadingScore] = useState(false);
   const [evaluationCount, setEvaluationCount] = useState(2);
   const [schedules, setSchedules] = useState<DisciplineScheduleResponse[]>([]);
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
@@ -35,6 +36,9 @@ export const DisciplineInfoScreen: React.FC = () => {
   const [isLoadingAssessments, setIsLoadingAssessments] = useState(false);
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   // Mapear weekday para nome do dia
   const weekdayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -48,43 +52,32 @@ export const DisciplineInfoScreen: React.FC = () => {
   };
 
   // Buscar dados da disciplina do backend
+  // IMPORTANT: disciplineId is ALWAYS an instance ID (never template ID)
+  // Backend auto-creates instances for OWNER when they create templates
   useEffect(() => {
     const loadDiscipline = async () => {
       if (!disciplineId) return;
 
       setIsLoading(true);
       try {
-        // Tentar buscar como instância primeiro
-        try {
-          const disciplineData = await disciplineInstancesApi.getById(disciplineId);
-          setDiscipline(disciplineData);
-          if (disciplineData.assessmentsCount) {
-            setEvaluationCount(disciplineData.assessmentsCount);
-          }
-          // Carregar horários, docentes, avaliações e tarefas da disciplina
-          await loadSchedules(disciplineData.id);
-          await loadTeachers(disciplineData.id);
-          await loadAssessments(disciplineData.id);
-          await loadTasks(disciplineData.id);
-        } catch (instanceError) {
-          // Se não encontrar instância, tentar buscar como template
-          try {
-            const templateData = await disciplinesApi.getById(disciplineId);
-            // Converter template para formato de instância (apenas nome)
-            setDiscipline({
-              id: templateData.id,
-              name: templateData.name,
-              disciplineTemplateId: templateData.id,
-              userCourseId: '',
-              periodInstanceId: '',
-            });
-          } catch (templateError) {
-            console.error('❌ Erro ao carregar disciplina (template):', templateError);
-            // Mantém dados padrão
-          }
+        // Always load discipline instance (OWNER and MEMBER both use instances)
+        const disciplineData = await disciplineInstancesApi.getById(disciplineId);
+        setDiscipline(disciplineData);
+        if (disciplineData.assessmentsCount) {
+          setEvaluationCount(disciplineData.assessmentsCount);
         }
+        console.log('✅ Discipline instance carregada:', disciplineData.name);
+        
+        // Carregar horários, docentes, avaliações, tarefas e pontuação da disciplina
+        // All these are linked to discipline INSTANCE
+        await loadScore(disciplineData.id);
+        await loadSchedules(disciplineData.id);
+        await loadTeachers(disciplineData.id);
+        await loadAssessments(disciplineData.id);
+        await loadTasks(disciplineData.id);
       } catch (error) {
-        console.error('❌ Erro ao carregar disciplina:', error);
+        console.error('❌ Erro ao carregar disciplina instance:', error);
+        Alert.alert('Erro', 'Não foi possível carregar a disciplina.');
       } finally {
         setIsLoading(false);
       }
@@ -92,6 +85,20 @@ export const DisciplineInfoScreen: React.FC = () => {
 
     loadDiscipline();
   }, [disciplineId]);
+
+  // Carregar pontuação do backend
+  const loadScore = async (instanceId: string) => {
+    setIsLoadingScore(true);
+    try {
+      const scores = await scoresApi.getByDiscipline(instanceId);
+      const total = scores.reduce((sum, record) => sum + record.points, 0);
+      setTotalScore(total);
+    } catch (error) {
+      console.error('❌ Erro ao carregar pontuação:', error);
+    } finally {
+      setIsLoadingScore(false);
+    }
+  };
 
   // Carregar horários do backend
   const loadSchedules = async (instanceId: string) => {
@@ -310,7 +317,52 @@ export const DisciplineInfoScreen: React.FC = () => {
     }
   };
 
-  const displayName = discipline?.name || disciplineName;
+  // Iniciar edição do nome
+  const handleStartEditName = () => {
+    if (discipline?.name) {
+      setEditedName(discipline.name);
+      setIsEditingName(true);
+    }
+  };
+
+  // Cancelar edição do nome
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setEditedName('');
+  };
+
+  // Salvar novo nome
+  const handleSaveName = async () => {
+    if (!editedName.trim()) {
+      Alert.alert('Erro', 'O nome da disciplina não pode estar vazio.');
+      return;
+    }
+
+    if (!discipline?.id) {
+      Alert.alert('Erro', 'Disciplina não encontrada.');
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const updated = await disciplinesApi.update(discipline.id, {
+        name: editedName.trim(),
+      });
+      
+      // Atualizar estado local
+      setDiscipline(prev => prev ? { ...prev, name: updated.name } : null);
+      setIsEditingName(false);
+      setEditedName('');
+      Alert.alert('Sucesso', 'Nome da disciplina atualizado!');
+    } catch (error) {
+      console.error('❌ Erro ao atualizar nome:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar o nome da disciplina.');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const displayName = discipline?.name ?? 'Carregando...';
 
   if (isLoading) {
     return (
@@ -333,7 +385,44 @@ export const DisciplineInfoScreen: React.FC = () => {
       {/* Discipline Title */}
       <View style={styles.disciplineHeader}>
         <Text style={styles.disciplineIcon}>🧠</Text>
-        <Text style={styles.disciplineName}>{displayName}</Text>
+        {isEditingName ? (
+          <View style={styles.nameEditContainer}>
+            <InputText
+              label=""
+              containerStyle={styles.nameInputContainer}
+              variant="light"
+              value={editedName}
+              onChangeText={setEditedName}
+              autoFocus
+            />
+            <View style={styles.nameEditButtons}>
+              <TouchableOpacity
+                style={styles.nameEditButton}
+                onPress={handleCancelEditName}
+                disabled={isSavingName}
+              >
+                <Text style={styles.nameEditButtonText}>✕</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.nameEditButton, styles.nameSaveButton]}
+                onPress={handleSaveName}
+                disabled={isSavingName}
+              >
+                <Text style={styles.nameEditButtonText}>✓</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.disciplineName}>{displayName}</Text>
+            <TouchableOpacity
+              style={styles.editNameButton}
+              onPress={handleStartEditName}
+            >
+              <Text style={styles.editNameIcon}>✏️</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* Score Display */}
@@ -553,6 +642,44 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.xl,
     fontWeight: '700',
     color: theme.colors.black,
+    flex: 1,
+  },
+  editNameButton: {
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
+  },
+  editNameIcon: {
+    fontSize: 20,
+  },
+  nameEditContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  nameInputContainer: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  nameEditButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+  },
+  nameEditButton: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.grayLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameSaveButton: {
+    backgroundColor: theme.colors.blueLight,
+  },
+  nameEditButtonText: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: '700',
+    color: theme.colors.white,
   },
   scoreContainer: {
     backgroundColor: theme.colors.blueLight,

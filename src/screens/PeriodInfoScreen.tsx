@@ -19,28 +19,35 @@ import { DatePicker } from "../components/DatePicker";
 import { Button } from "../components/Button";
 import { theme } from "../theme";
 import { periodsApi, PeriodTemplateResponse } from "../api/periods";
+import { periodInstancesApi, PeriodInstanceResponse } from "../api/periodInstances";
 import { disciplinesApi, DisciplineTemplateResponse } from "../api/disciplines";
+import { disciplineInstancesApi, DisciplineInstanceResponse } from "../api/disciplineInstances";
 import { BlurView } from "expo-blur";
 import { InputText } from "../components/InputText";
 
+// Tipo union para período (template ou instance)
+type PeriodData = PeriodTemplateResponse | PeriodInstanceResponse;
+
 interface PeriodInfoFormData {
-  startDate: string;
-  endDate: string;
+  name: string;
+  plannedStart: string | null;
+  plannedEnd: string | null;
 }
 
 export const PeriodInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { periodTemplateId, courseId } = route.params as {
-    periodTemplateId: string;
+  const { periodId, isTemplate, userCourseId, courseId } = route.params as {
+    periodId: string;
+    isTemplate: boolean;
+    userCourseId: string;
     courseId: string;
   };
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [periodTemplate, setPeriodTemplate] =
-    useState<PeriodTemplateResponse | null>(null);
+  const [period, setPeriod] = useState<PeriodData | null>(null);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
-  const [disciplines, setDisciplines] = useState<DisciplineTemplateResponse[]>(
+  const [disciplines, setDisciplines] = useState<DisciplineInstanceResponse[]>(
     []
   );
   const [isLoadingDisciplines, setIsLoadingDisciplines] = useState(false);
@@ -56,32 +63,42 @@ export const PeriodInfoScreen: React.FC = () => {
     setValue,
   } = useForm<PeriodInfoFormData>({
     defaultValues: {
-      startDate: "",
-      endDate: "",
+      name: period?.name,
+      plannedStart: period?.plannedStart,
+      plannedEnd: period?.plannedEnd,
     },
   });
 
-  // Buscar período do backend
+  // Buscar período do backend (template ou instance baseado em isTemplate)
   useEffect(() => {
     const loadPeriod = async () => {
-      if (!periodTemplateId) {
-        console.warn("⚠️ Nenhum periodTemplateId foi recebido pela rota.");
+      if (!periodId) {
+        console.warn("⚠️ Nenhum periodId foi recebido pela rota.");
         return;
       }
 
       setIsLoadingPeriod(true);
       try {
-        const template = await periodsApi.getTemplateById(periodTemplateId);
-
-        console.log("✅ Período carregado do backend:", template);
-        setPeriodTemplate(template);
-
-        if (template.plannedStart) {
-          setValue("startDate", convertDateFromISO(template.plannedStart));
+        let loadedPeriod: PeriodData;
+        
+        if (isTemplate) {
+          // OWNER: busca template
+          loadedPeriod = await periodsApi.getTemplateById(periodId);
+          console.log("✅ Período template carregado:", loadedPeriod);
+        } else {
+          // MEMBER: busca instance
+          loadedPeriod = await periodInstancesApi.getById(periodId);
+          console.log("✅ Período instance carregado:", loadedPeriod);
         }
 
-        if (template.plannedEnd) {
-          setValue("endDate", convertDateFromISO(template.plannedEnd));
+        setPeriod(loadedPeriod);
+
+        if (loadedPeriod.plannedStart) {
+          setValue("plannedStart", convertDateFromISO(loadedPeriod.plannedStart));
+        }
+
+        if (loadedPeriod.plannedEnd) {
+          setValue("plannedEnd", convertDateFromISO(loadedPeriod.plannedEnd));
         }
       } catch (error) {
         console.error("❌ Erro ao carregar período:", error);
@@ -92,25 +109,52 @@ export const PeriodInfoScreen: React.FC = () => {
     };
 
     loadPeriod();
-  }, [periodTemplateId, setValue]);
+  }, [periodId, isTemplate, setValue]);
 
   // Carregar disciplinas do backend
+  // IMPORTANT: Always load discipline INSTANCES (both OWNER and MEMBER use instances)
+  // Teachers, schedules, tasks, etc. are all linked to instances
   const loadDisciplines = React.useCallback(async () => {
-    const currentPeriodTemplateId = periodTemplateId || periodTemplate?.id;
-    if (!currentPeriodTemplateId) return;
+    const currentPeriodId = periodId || period?.id;
+    if (!currentPeriodId) return;
 
     setIsLoadingDisciplines(true);
     try {
-      const loadedDisciplines = await disciplinesApi.getByPeriod(
-        currentPeriodTemplateId
+      let periodInstanceId = currentPeriodId;
+
+      // If viewing a period TEMPLATE (OWNER), we need to find the corresponding period INSTANCE
+      if (isTemplate) {
+        console.log('📋 Viewing period template, finding OWNER\'s period instance...');
+        // Get all period instances for this user course
+        const allInstances = await periodInstancesApi.getByUserCourse(userCourseId);
+        // Find the instance that corresponds to this template
+        const matchingInstance = allInstances.find(
+          (inst) => inst.periodTemplateId === currentPeriodId
+        );
+        
+        if (matchingInstance) {
+          periodInstanceId = matchingInstance.id;
+          console.log(`✅ Found OWNER's period instance: ${periodInstanceId}`);
+        } else {
+          console.log('⚠️ No period instance found for this template yet');
+          setDisciplines([]);
+          setIsLoadingDisciplines(false);
+          return;
+        }
+      }
+
+      // Load discipline instances by period instance ID
+      const loadedDisciplines = await disciplineInstancesApi.getByPeriodInstance(
+        periodInstanceId
       );
       setDisciplines(loadedDisciplines);
+      console.log(`✅ ${loadedDisciplines.length} discipline instances carregadas para período instance ${periodInstanceId}`);
     } catch (error) {
       console.error("❌ Erro ao carregar disciplinas:", error);
     } finally {
       setIsLoadingDisciplines(false);
     }
-  }, [periodTemplateId, periodTemplate?.id]);
+  }, [periodId, period?.id, isTemplate, userCourseId]);
 
   useEffect(() => {
     loadDisciplines();
@@ -150,30 +194,44 @@ export const PeriodInfoScreen: React.FC = () => {
   };
 
   const onSubmit = async (data: PeriodInfoFormData) => {
-    if (!periodTemplate?.id) {
+    if (!period?.id) {
       Alert.alert("Erro", "Período não encontrado");
       return;
     }
 
     setIsLoading(true);
     try {
-      const startDateISO = convertDateToISO(data.startDate);
-      const endDateISO = convertDateToISO(data.endDate);
+      const plannedStartISO = convertDateToISO(data.plannedStart ?? "");
+      const plannedEndISO = convertDateToISO(data.plannedEnd ?? "");
 
-      console.log("📝 Atualizando período:", periodTemplate.id);
+      console.log("📝 Atualizando período:", period.id);
 
-      const updated = await periodsApi.updateTemplate(periodTemplate.id, {
-        startDate: startDateISO,
-        endDate: endDateISO,
-      });
+      let updated: PeriodData;
+      
+      if (isTemplate) {
+        // OWNER: atualiza template
+        updated = await periodsApi.updateTemplate(period.id, {
+          name: period.name,
+          plannedStart: plannedStartISO,
+          plannedEnd: plannedEndISO,
+        });
+      } else {
+        // MEMBER: atualiza instance
+        updated = await periodInstancesApi.update(period.id, {
+          name: period.name,
+          plannedStart: plannedStartISO,
+          plannedEnd: plannedEndISO,
+        });
+      }
 
-      setPeriodTemplate(updated);
+      setPeriod(updated);
 
       reset({
-        startDate: updated.plannedStart
+        name: updated.name,
+        plannedStart: updated.plannedStart
           ? convertDateFromISO(updated.plannedStart)
           : "",
-        endDate: updated.plannedEnd
+        plannedEnd: updated.plannedEnd
           ? convertDateFromISO(updated.plannedEnd)
           : "",
       });
@@ -198,14 +256,14 @@ export const PeriodInfoScreen: React.FC = () => {
   };
 
   const handleSaveDiscipline = async () => {
-    const effectivePeriodTemplateId = periodTemplate?.id || periodTemplateId;
+    const effectivePeriodId = period?.id || periodId;
 
     console.log(
-      "📝 Salvando nova effectivePeriodTemplateId:",
-      effectivePeriodTemplateId
+      "📝 Salvando nova disciplina para período:",
+      effectivePeriodId
     );
 
-    if (!effectivePeriodTemplateId) {
+    if (!effectivePeriodId) {
       Alert.alert("Erro", "Período não encontrado.");
       return;
     }
@@ -217,17 +275,28 @@ export const PeriodInfoScreen: React.FC = () => {
     console.log("📝 Criando disciplina:", newDisciplineName.trim());
 
     try {
-      const created = await disciplinesApi.create({
-        periodTemplateId: effectivePeriodTemplateId,
+      // OWNER creates template, backend auto-creates instance for OWNER
+      // MEMBER also creates template (if it doesn't exist), backend creates instance
+      // Both end up with instances, which is what we need for teachers, schedules, etc.
+      const templateId = isTemplate 
+        ? effectivePeriodId 
+        : (period as PeriodInstanceResponse)?.periodTemplateId || effectivePeriodId;
+      
+      await disciplinesApi.create({
+        periodTemplateId: templateId,
         name: newDisciplineName.trim(),
       });
 
-      // Atualiza lista imediatamente na tela (sem precisar recarregar tudo)
-      setDisciplines((prev) => [...prev, created]);
+      console.log("✅ Disciplina template criada. Backend criou automaticamente a instância.");
+
+      // Reload discipline instances (backend creates them automatically)
+      await loadDisciplines();
 
       // Limpa e fecha modal
       setNewDisciplineName("");
       setShowAddDisciplineModal(false);
+      
+      Alert.alert("Sucesso", "Disciplina criada com sucesso!");
     } catch (error: any) {
       console.error("❌ Erro ao criar disciplina:", error);
       Alert.alert(
@@ -253,9 +322,9 @@ export const PeriodInfoScreen: React.FC = () => {
       {/* Period Overview */}
       <View style={styles.periodOverview}>
         <View style={styles.periodNumberCircle}>
-          <Text style={styles.periodNumber}>{periodTemplate?.position}</Text>
+          <Text style={styles.periodNumber}>{period?.position}</Text>
         </View>
-        <Text style={styles.periodTitle}>{periodTemplate?.name}</Text>
+        <Text style={styles.periodTitle}>{period?.name}</Text>
       </View>
 
       {/* Information Card */}
@@ -266,30 +335,30 @@ export const PeriodInfoScreen: React.FC = () => {
 
             <Controller
               control={control}
-              name="startDate"
+              name="plannedStart"
               rules={{ required: "Data de início é obrigatória" }}
               render={({ field: { onChange, value } }) => (
                 <DatePicker
                   label="Previsão de início"
                   placeholder="dd/mm/aaaa"
-                  value={value}
+                  value={value ?? undefined}
                   onChange={onChange}
-                  error={errors.startDate?.message}
+                  error={errors.plannedStart?.message}
                 />
               )}
             />
 
             <Controller
               control={control}
-              name="endDate"
+              name="plannedEnd"
               rules={{ required: "Data de término é obrigatória" }}
               render={({ field: { onChange, value } }) => (
                 <DatePicker
                   label="Previsão de término"
                   placeholder="dd/mm/aaaa"
-                  value={value}
+                  value={value ?? undefined}
                   onChange={onChange}
-                  error={errors.endDate?.message}
+                  error={errors.plannedEnd?.message}
                 />
               )}
             />
@@ -327,8 +396,8 @@ export const PeriodInfoScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Previsão de início</Text>
                   <Text style={styles.infoValue}>
-                    {periodTemplate?.plannedStart
-                      ? convertDateFromISO(periodTemplate.plannedStart)
+                    {period?.plannedStart
+                      ? convertDateFromISO(period.plannedStart)
                       : "dd/mm/aaaa"}
                   </Text>
                 </View>
@@ -336,8 +405,8 @@ export const PeriodInfoScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Previsão de término</Text>
                   <Text style={styles.infoValue}>
-                    {periodTemplate?.plannedEnd
-                      ? convertDateFromISO(periodTemplate.plannedEnd)
+                    {period?.plannedEnd
+                      ? convertDateFromISO(period.plannedEnd)
                       : "dd/mm/aaaa"}
                   </Text>
                 </View>
@@ -422,8 +491,6 @@ export const PeriodInfoScreen: React.FC = () => {
                 // Navegar para informações da disciplina
                 (navigation as any).navigate("DisciplineInfo", {
                   disciplineId: discipline.id,
-                  disciplineName: discipline.name,
-                  periodTemplateId: periodTemplate?.id || periodTemplateId,
                 });
               }}
             >

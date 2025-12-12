@@ -3,18 +3,18 @@ import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIn
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../theme';
 import { useAuth } from '../contexts/AuthContext';
-import { coursesApi, CourseResponse } from '../api/courses';
+import { userCoursesApi, UserCourseResponse } from '../api/userCourses';
 
 export const HomeScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation();
-  const [courses, setCourses] = useState<CourseResponse[]>([]);
+  const [courses, setCourses] = useState<UserCourseResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadCourses = async () => {
     try {
-      const coursesList = await coursesApi.getAll();
+      const coursesList = await userCoursesApi.getAll();
       setCourses(coursesList);
     } catch (error) {
       console.error('❌ Erro ao carregar cursos:', error);
@@ -36,10 +36,9 @@ export const HomeScreen: React.FC = () => {
     loadCourses();
   };
 
-  const handleCoursePress = (course: CourseResponse) => {
+  const handleCoursePress = (course: UserCourseResponse) => {
     (navigation as any).navigate('CourseInfo', {
-      courseId: course.id,
-      createdCourse: course,
+      userCourseId: course.userCourseId,
     });
   };
 
@@ -66,7 +65,7 @@ export const HomeScreen: React.FC = () => {
           <Text style={styles.coursesTitle}>Meus Cursos</Text>
           {courses.map((course) => (
             <TouchableOpacity
-              key={course.id}
+              key={course.userCourseId}
               style={styles.courseCard}
               onPress={() => handleCoursePress(course)}
             >

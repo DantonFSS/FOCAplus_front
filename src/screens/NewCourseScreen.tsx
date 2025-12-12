@@ -8,6 +8,7 @@ import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { theme } from '../theme';
 import { coursesApi, mapLevelToBackend, mapDivisionTypeToBackend } from '../api/courses';
+import { userCoursesApi } from '../api/userCourses';
 import { periodsApi } from '../api/periods';
 
 interface NewCourseFormData {
@@ -95,9 +96,21 @@ export const NewCourseScreen: React.FC = () => {
       const createdCourse = await coursesApi.create(courseData);
       console.log('✅ Curso criado com sucesso:', createdCourse);
 
-      // Navegar diretamente para CourseInfo com o curso criado
+      // Buscar o UserCourse do OWNER (backend cria automaticamente)
+      const userCourses = await userCoursesApi.getAll();
+      const ownerUserCourse = userCourses.find(
+        (uc) => uc.templateId === createdCourse.id && uc.role === 'OWNER'
+      );
+
+      if (!ownerUserCourse) {
+        throw new Error('UserCourse do OWNER não encontrado');
+      }
+
+      console.log('✅ UserCourse encontrado:', ownerUserCourse.userCourseId);
+
+      // Navegar para CourseInfo com o userCourseId
       (navigation as any).navigate('CourseInfo', {
-        createdCourse: createdCourse,
+        userCourseId: ownerUserCourse.userCourseId,
       });
     } catch (error: any) {
       console.error('❌ Erro ao criar curso:', error);
