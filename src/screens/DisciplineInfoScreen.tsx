@@ -609,7 +609,7 @@ export const DisciplineInfoScreen: React.FC = () => {
       <View style={styles.actionButtons}>
         <Button
           title="Tarefas de casa"
-          onPress={handleCreateTask}
+          onPress={() => (navigation as any).navigate('Tasks', { disciplineId })}
           variant="primary"
           style={styles.actionButton}
         />
