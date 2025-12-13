@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Button } from '../components/Button';
 import { InputText } from '../components/InputText';
+import { SelectDropdown } from '../components/SelectDropdown';
 import { theme } from '../theme';
+import { BlurView } from 'expo-blur';
 import { disciplineInstancesApi, DisciplineInstanceResponse, disciplinesApi } from '../api/disciplines';
 import { disciplineSchedulesApi, DisciplineScheduleResponse } from '../api/disciplineSchedules';
 import { disciplineTeachersApi, DisciplineTeacherResponse } from '../api/disciplineTeachers';
@@ -39,9 +41,39 @@ export const DisciplineInfoScreen: React.FC = () => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
+  
+  // Modal de adicionar horário
+  const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
+  const [newScheduleWeekday, setNewScheduleWeekday] = useState<number>(1);
+  const [newScheduleStartTime, setNewScheduleStartTime] = useState('');
+  const [newScheduleEndTime, setNewScheduleEndTime] = useState('');
+  const [isAddingSchedule, setIsAddingSchedule] = useState(false);
+  
+  // Modal de confirmar deleção de horário
+  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState<string | null>(null);
+  const [isDeletingSchedule, setIsDeletingSchedule] = useState(false);
+  
+  // Modal de confirmar deleção de docente
+  const [showDeleteTeacherModal, setShowDeleteTeacherModal] = useState(false);
+  const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
+  const [isDeletingTeacher, setIsDeletingTeacher] = useState(false);
 
   // Mapear weekday para nome do dia
   const weekdayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+  // Formatar horário automaticamente (adiciona os dois pontos)
+  const formatTimeInput = (text: string): string => {
+    // Remove tudo que não é número
+    const numbers = text.replace(/\D/g, '');
+    
+    if (numbers.length === 0) return '';
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2)}`;
+    }
+    return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
+  };
 
   // Formatar horário para exibição
   const formatSchedule = (schedule: DisciplineScheduleResponse): string => {
@@ -127,27 +159,26 @@ export const DisciplineInfoScreen: React.FC = () => {
   };
 
   // Remover horário
-  const handleRemoveSchedule = async (scheduleId: string) => {
-    Alert.alert(
-      'Confirmar',
-      'Deseja remover este horário?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Remover',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await disciplineSchedulesApi.delete(scheduleId);
-              setSchedules(schedules.filter(s => s.id !== scheduleId));
-            } catch (error) {
-              console.error('❌ Erro ao remover horário:', error);
-              Alert.alert('Erro', 'Não foi possível remover o horário.');
-            }
-          },
-        },
-      ]
-    );
+  const handleRemoveSchedule = (scheduleId: string) => {
+    setScheduleToDelete(scheduleId);
+    setShowDeleteScheduleModal(true);
+  };
+
+  const handleConfirmDeleteSchedule = async () => {
+    if (!scheduleToDelete) return;
+
+    setIsDeletingSchedule(true);
+    try {
+      await disciplineSchedulesApi.delete(scheduleToDelete);
+      setSchedules(schedules.filter(s => s.id !== scheduleToDelete));
+      setShowDeleteScheduleModal(false);
+      setScheduleToDelete(null);
+    } catch (error) {
+      console.error('❌ Erro ao remover horário:', error);
+      Alert.alert('Erro', 'Não foi possível remover o horário.');
+    } finally {
+      setIsDeletingSchedule(false);
+    }
   };
 
   // Adicionar horário (simplificado - apenas segunda-feira 14h-16h como exemplo)
@@ -163,17 +194,32 @@ export const DisciplineInfoScreen: React.FC = () => {
       return;
     }
 
+    // Abrir modal
+    setShowAddScheduleModal(true);
+  };
+
+  const handleConfirmAddSchedule = async () => {
+    if (!discipline?.id) return;
+
+    setIsAddingSchedule(true);
     try {
       const newSchedule = await disciplineSchedulesApi.create({
         disciplineInstanceId: discipline.id,
-        weekday: 1, // Segunda-feira
-        startTime: '14:00',
-        endTime: '16:00',
+        weekday: newScheduleWeekday,
+        startTime: newScheduleStartTime,
+        endTime: newScheduleEndTime,
       });
       setSchedules([...schedules, newSchedule]);
+      setShowAddScheduleModal(false);
+      // Resetar valores
+      setNewScheduleWeekday(1);
+      setNewScheduleStartTime('');
+      setNewScheduleEndTime('');
     } catch (error) {
       console.error('❌ Erro ao adicionar horário:', error);
       Alert.alert('Erro', 'Não foi possível adicionar o horário.');
+    } finally {
+      setIsAddingSchedule(false);
     }
   };
 
@@ -221,27 +267,26 @@ export const DisciplineInfoScreen: React.FC = () => {
   };
 
   // Remover docente
-  const handleRemoveTeacher = async (teacherId: string) => {
-    Alert.alert(
-      'Confirmar',
-      'Deseja remover este docente?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Remover',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await disciplineTeachersApi.delete(teacherId);
-              setTeachers(teachers.filter(t => t.id !== teacherId));
-            } catch (error) {
-              console.error('❌ Erro ao remover docente:', error);
-              Alert.alert('Erro', 'Não foi possível remover o docente.');
-            }
-          },
-        },
-      ]
-    );
+  const handleRemoveTeacher = (teacherId: string) => {
+    setTeacherToDelete(teacherId);
+    setShowDeleteTeacherModal(true);
+  };
+
+  const handleConfirmDeleteTeacher = async () => {
+    if (!teacherToDelete) return;
+
+    setIsDeletingTeacher(true);
+    try {
+      await disciplineTeachersApi.delete(teacherToDelete);
+      setTeachers(teachers.filter(t => t.id !== teacherToDelete));
+      setShowDeleteTeacherModal(false);
+      setTeacherToDelete(null);
+    } catch (error) {
+      console.error('❌ Erro ao remover docente:', error);
+      Alert.alert('Erro', 'Não foi possível remover o docente.');
+    } finally {
+      setIsDeletingTeacher(false);
+    }
   };
 
   // Criar avaliação simples (título + descrição opcional)
@@ -601,6 +646,170 @@ export const DisciplineInfoScreen: React.FC = () => {
         <Image source={require('../../assets/foca2.png')} style={styles.startStudyIcon} />
         <Text style={styles.startStudyText}>Iniciar estudo</Text>
       </TouchableOpacity>
+
+      {/* Modal Adicionar Horário */}
+      <Modal
+        visible={showAddScheduleModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Adicionar Horário</Text>
+              
+              <View style={styles.modalFormSection}>
+                <Text style={styles.modalLabel}>Dia da semana</Text>
+                <SelectDropdown
+                  options={weekdayNames.map((name, index) => ({ 
+                    label: name, 
+                    value: index.toString() 
+                  }))}
+                  value={newScheduleWeekday.toString()}
+                  onChange={(value: string) => setNewScheduleWeekday(parseInt(value))}
+                  placeholder="Selecione o dia"
+                />
+              </View>
+
+              <View style={styles.modalFormSection}>
+                <Text style={styles.modalLabel}>Horário de início</Text>
+                <InputText
+                  value={newScheduleStartTime}
+                  onChangeText={(text) => setNewScheduleStartTime(formatTimeInput(text))}
+                  placeholder="08:00"
+                  variant="light"
+                  keyboardType="numeric"
+                  maxLength={5}
+                />
+              </View>
+
+              <View style={styles.modalFormSection}>
+                <Text style={styles.modalLabel}>Horário de término</Text>
+                <InputText
+                  value={newScheduleEndTime}
+                  onChangeText={(text) => setNewScheduleEndTime(formatTimeInput(text))}
+                  placeholder="10:00"
+                  variant="light"
+                  keyboardType="numeric"
+                  maxLength={5}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <Button
+                  title="Cancelar"
+                  variant="secondary"
+                  onPress={() => {
+                    setShowAddScheduleModal(false);
+                    setNewScheduleWeekday(1);
+                    setNewScheduleStartTime('');
+                    setNewScheduleEndTime('');
+                  }}
+                  style={styles.modalButton}
+                />
+                <Button
+                  title={isAddingSchedule ? 'Adicionando...' : 'Adicionar'}
+                  variant="primary"
+                  onPress={handleConfirmAddSchedule}
+                  disabled={isAddingSchedule}
+                  style={styles.modalButton}
+                />
+              </View>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+
+      {/* Modal Confirmar Deleção de Horário */}
+      <Modal
+        visible={showDeleteScheduleModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Remover Horário</Text>
+              <Text style={styles.modalBody}>
+                Tem certeza que deseja remover este horário?
+              </Text>
+
+              <View style={styles.modalActions}>
+                <Button
+                  title="Cancelar"
+                  variant="secondary"
+                  onPress={() => {
+                    setShowDeleteScheduleModal(false);
+                    setScheduleToDelete(null);
+                  }}
+                  style={styles.modalButton}
+                />
+                <View style={styles.modalButton}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalDeleteButton,
+                      isDeletingSchedule && styles.modalDeleteButtonDisabled,
+                    ]}
+                    onPress={handleConfirmDeleteSchedule}
+                    disabled={isDeletingSchedule}
+                  >
+                    <Text style={styles.modalDeleteButtonText}>
+                      {isDeletingSchedule ? 'Removendo...' : 'Sim,\nremover'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+
+      {/* Modal Confirmar Deleção de Docente */}
+      <Modal
+        visible={showDeleteTeacherModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Remover Docente</Text>
+              <Text style={styles.modalBody}>
+                Tem certeza que deseja remover este docente?
+              </Text>
+
+              <View style={styles.modalActions}>
+                <Button
+                  title="Cancelar"
+                  variant="secondary"
+                  onPress={() => {
+                    setShowDeleteTeacherModal(false);
+                    setTeacherToDelete(null);
+                  }}
+                  style={styles.modalButton}
+                />
+                <View style={styles.modalButton}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalDeleteButton,
+                      isDeletingTeacher && styles.modalDeleteButtonDisabled,
+                    ]}
+                    onPress={handleConfirmDeleteTeacher}
+                    disabled={isDeletingTeacher}
+                  >
+                    <Text style={styles.modalDeleteButtonText}>
+                      {isDeletingTeacher ? 'Removendo...' : 'Sim,\nremover'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
     </ScrollView>
   );
 };
@@ -934,6 +1143,82 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.grayDark,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(8, 16, 32, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg * 1.5,
+    width: '100%',
+    maxWidth: 400,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: '700',
+    color: theme.colors.black,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  modalFormSection: {
+    marginBottom: theme.spacing.md,
+  },
+  modalLabel: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.grayDark,
+    marginBottom: theme.spacing.xs,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  modalBody: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.grayDark,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  modalDeleteButton: {
+    backgroundColor: theme.colors.redBad,
+    borderColor: theme.colors.redBad,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+    width: '100%',
+    shadowColor: theme.colors.redBad,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  modalDeleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalDeleteButtonText: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.white,
   },
 });
 

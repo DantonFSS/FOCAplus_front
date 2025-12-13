@@ -44,15 +44,16 @@ function AuthNavigator() {
   );
 }
 
-// Stack Navigator para o fluxo de criação de curso
-function CourseCreationStack() {
+// Stack Navigator para o fluxo completo do app
+function MainStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="HomeMain" component={HomeScreen} />
       <Stack.Screen name="NewCourse" component={NewCourseScreen} />
       <Stack.Screen name="PeriodDetail" component={PeriodDetailScreen} />
+      <Stack.Screen name="CourseInfo" component={CourseInfoScreen} />
       <Stack.Screen name="PeriodInfo" component={PeriodInfoScreen} />
       <Stack.Screen name="AddDisciplines" component={AddDisciplinesScreen} />
-      <Stack.Screen name="CourseInfo" component={CourseInfoScreen} />
       <Stack.Screen name="DisciplineInfo" component={DisciplineInfoScreen} />
       <Stack.Screen name="EvaluationInfo" component={EvaluationInfoScreen} />
     </Stack.Navigator>
@@ -112,37 +113,12 @@ function AppNavigator() {
           ),
         })}
       >
-        <Drawer.Screen name="Home" component={HomeScreen} />
+        <Drawer.Screen name="Home" component={MainStack} options={{ headerShown: false }} />
         <Drawer.Screen name="Pro" component={ProScreen} />
         <Drawer.Screen name="CreateGroup" component={CreateGroupScreen} />
         <Drawer.Screen 
           name="CourseCreation" 
-          component={CourseCreationStack}
-          options={{ headerShown: false }}
-        />
-        <Drawer.Screen 
-          name="CourseInfo" 
-          component={CourseInfoScreen}
-          options={{ headerShown: false }}
-        />
-        <Drawer.Screen 
-          name="PeriodInfo" 
-          component={PeriodInfoScreen}
-          options={{ headerShown: false }}
-        />
-        <Drawer.Screen 
-          name="DisciplineInfo" 
-          component={DisciplineInfoScreen}
-          options={{ headerShown: false }}
-        />
-        <Drawer.Screen 
-          name="EvaluationInfo" 
-          component={EvaluationInfoScreen}
-          options={{ headerShown: false }}
-        />
-        <Drawer.Screen 
-          name="AddDisciplines" 
-          component={AddDisciplinesScreen}
+          component={NewCourseScreen}
           options={{ headerShown: false }}
         />
       </Drawer.Navigator>

@@ -560,10 +560,7 @@ export const CourseInfoScreen: React.FC = () => {
       {/* Finalize Button */}
       <Button
         title="Finalizar"
-        onPress={() => {
-          // Navegar para Home após finalizar
-          (navigation as any).navigate("Home");
-        }}
+        onPress={() => navigation.goBack()}
         variant="primary"
         style={styles.finalizeButton}
         disabled={isLoadingCourse}

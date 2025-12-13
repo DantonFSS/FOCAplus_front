@@ -44,6 +44,11 @@ export const assessmentsApi = {
     return response.data;
   },
 
+  getById: async (id: string): Promise<AssessmentResponse> => {
+    const response = await apiClient.get<AssessmentResponse>(`/assessments/${id}`);
+    return response.data;
+  },
+
   update: async (id: string, data: UpdateAssessmentRequest): Promise<AssessmentResponse> => {
     const response = await apiClient.put<AssessmentResponse>(`/assessments/${id}`, data);
     return response.data;

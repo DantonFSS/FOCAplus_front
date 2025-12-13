@@ -3,50 +3,88 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIn
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { InputText } from '../components/InputText';
+import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { theme } from '../theme';
 import { assessmentsApi, AssessmentResponse } from '../api/assessments';
 
 interface EvaluationFormData {
+  title: string;
   description: string;
-  aiPrompt: string;
+  pointsPossible: string;
+  date: string;
+  startTime: string;
+  endTime: string;
 }
 
 export const EvaluationInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const evaluationId = (route.params as any)?.evaluationId;
-  const fallbackName = (route.params as any)?.evaluationName || 'Avaliação 1';
   const [evaluation, setEvaluation] = useState<AssessmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const {
     control,
     handleSubmit,
     setValue,
-    watch,
+    reset,
     formState: { errors },
   } = useForm<EvaluationFormData>({
     defaultValues: {
+      title: '',
       description: '',
-      aiPrompt: '',
+      pointsPossible: '',
+      date: '',
+      startTime: '',
+      endTime: '',
     },
   });
 
-  const description = watch('description');
+  // Formatar horário automaticamente
+  const formatTimeInput = (text: string): string => {
+    const numbers = text.replace(/\D/g, '');
+    if (numbers.length === 0) return '';
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2)}`;
+    }
+    return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
+  };
 
-  // Carregar dados reais da avaliação
+  // Converter data ISO para formato brasileiro
+  const convertISOToDate = (isoDate: string): string => {
+    if (!isoDate) return '';
+    const date = new Date(isoDate);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Converter data brasileira para ISO
+  const convertDateToISO = (dateStr: string): string | undefined => {
+    if (!dateStr || dateStr === 'dd/mm/aaaa') return undefined;
+    const [day, month, year] = dateStr.split('/');
+    if (!day || !month || !year) return undefined;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toISOString().split('T')[0];
+  };
+
+  // Carregar dados da avaliação
   useEffect(() => {
     const loadEvaluation = async () => {
       if (!evaluationId) return;
 
       setIsLoading(true);
       try {
-        const data = await assessmentsApi.update(evaluationId, {}); // GET não existe, usar update com corpo vazio seria errado
+        const data = await assessmentsApi.getById(evaluationId);
+        setEvaluation(data);
+        console.log('✅ Avaliação carregada:', data);
       } catch (error) {
-        // fallback: apenas não carregar nada extra
-        console.error('❌ Erro ao carregar avaliação (não há GET por id exposto na API de frontend):', error);
+        console.error('❌ Erro ao carregar avaliação:', error);
+        Alert.alert('Erro', 'Não foi possível carregar os dados da avaliação.');
       } finally {
         setIsLoading(false);
       }
@@ -55,29 +93,49 @@ export const EvaluationInfoScreen: React.FC = () => {
     loadEvaluation();
   }, [evaluationId]);
 
-  const handleGenerateWithAI = async (data: EvaluationFormData) => {
-    if (!data.aiPrompt.trim()) {
-      Alert.alert('Atenção', 'Por favor, descreva os assuntos da avaliação para gerar o texto.');
+  // Atualizar form quando evaluation mudar
+  useEffect(() => {
+    if (evaluation) {
+      reset({
+        title: evaluation.title || '',
+        description: evaluation.description || '',
+        pointsPossible: evaluation.pointsPossible?.toString() || '',
+        date: evaluation.date ? convertISOToDate(evaluation.date) : '',
+        startTime: evaluation.startTime?.substring(0, 5) || '',
+        endTime: evaluation.endTime?.substring(0, 5) || '',
+      });
+    }
+  }, [evaluation, reset]);
+
+  const onSubmit = async (data: EvaluationFormData) => {
+    if (!evaluationId) {
+      Alert.alert('Erro', 'ID da avaliação não encontrado');
       return;
     }
 
-    setIsGenerating(true);
-    // TODO: Integrar com API de IA real
-    // Por enquanto, simula geração de texto baseado no prompt
-    setTimeout(() => {
-      const generatedText = `Esta avaliação abordará os seguintes temas: ${data.aiPrompt}. 
+    setIsSaving(true);
+    try {
+      const updateData: any = {};
       
-A avaliação será composta por questões que testarão o conhecimento dos estudantes sobre esses assuntos, incluindo conceitos teóricos e aplicações práticas. 
+      if (data.title) updateData.title = data.title;
+      if (data.description) updateData.description = data.description;
+      if (data.pointsPossible) updateData.pointsPossible = parseInt(data.pointsPossible);
+      if (data.date) updateData.date = convertDateToISO(data.date);
+      if (data.startTime) updateData.startTime = data.startTime;
+      if (data.endTime) updateData.endTime = data.endTime;
 
-Os estudantes devem estar preparados para demonstrar compreensão profunda dos tópicos mencionados e capacidade de aplicá-los em diferentes contextos.`;
-
-      setValue('description', generatedText);
-      setIsGenerating(false);
-      Alert.alert('Sucesso', 'Texto gerado com IA!');
-    }, 2000);
+      const updated = await assessmentsApi.update(evaluationId, updateData);
+      setEvaluation(updated);
+      Alert.alert('Sucesso', 'Avaliação atualizada com sucesso!');
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar:', error);
+      Alert.alert('Erro', error?.response?.data?.message || 'Não foi possível salvar as alterações.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const displayName = evaluation?.title || fallbackName;
+  const displayName = evaluation?.title || 'Avaliação';
 
   if (isLoading) {
     return (
@@ -94,89 +152,140 @@ Os estudantes devem estar preparados para demonstrar compreensão profunda dos t
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Avaliação_Info IA</Text>
+        <Text style={styles.headerTitle}>Detalhes da Avaliação</Text>
       </View>
 
-      {/* Evaluation Title */}
+      {/* Evaluation Header */}
       <View style={styles.evaluationHeader}>
         <Text style={styles.evaluationIcon}>📄</Text>
-        <Text style={styles.evaluationGrade}>A+</Text>
         <Text style={styles.evaluationName}>{displayName}</Text>
       </View>
 
-      {/* Instruction */}
-      <Text style={styles.instruction}>
-        Adicione informações sobre esta avaliação...
-      </Text>
-
-      {/* Empty State (quando não há descrição) */}
-      {!description && (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📄</Text>
-          <Text style={styles.emptyText}>Nenhuma informação adicionada ainda.</Text>
-        </View>
-      )}
-
-      {/* Evaluation Description */}
+      {/* Form Section */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Descrição da avaliação</Text>
+        <Text style={styles.sectionTitle}>Informações da avaliação</Text>
+
+        <Controller
+          control={control}
+          name="title"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <InputText
+              label="Título"
+              containerStyle={styles.inputContainer}
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              variant="light"
+            />
+          )}
+        />
+
         <Controller
           control={control}
           name="description"
           render={({ field: { onChange, onBlur, value } }) => (
             <InputText
-              label="Exemplo: Avaliação sobre o conteúdo da Unidade 1, incluindo temas de probabilidade e estatística..."
-              containerStyle={styles.textAreaContainer}
+              label="Descrição"
+              containerStyle={styles.inputContainer}
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
               variant="light"
               multiline
-              numberOfLines={6}
+              numberOfLines={4}
               textAlignVertical="top"
             />
           )}
         />
-        {description && (
-          <Button
-            title="Salvar descrição"
-            onPress={() => {
-              Alert.alert('Sucesso', 'Descrição da avaliação salva!');
-            }}
-            variant="primary"
-            style={styles.saveButton}
-          />
-        )}
-      </View>
 
-      {/* AI Assistance Section */}
-      <View style={styles.aiSection}>
-        <Text style={styles.aiPromptTitle}>
-          Quer ajuda para descrever a avaliação?
-        </Text>
         <Controller
           control={control}
-          name="aiPrompt"
+          name="pointsPossible"
           render={({ field: { onChange, onBlur, value } }) => (
             <InputText
-              label="Ex: avaliação terá como assuntos algoritmos genéticos e redes neurais"
-              containerStyle={styles.aiInputContainer}
+              label="Pontuação máxima"
+              containerStyle={styles.inputContainer}
               value={value}
               onChangeText={onChange}
               onBlur={onBlur}
               variant="light"
+              keyboardType="numeric"
+              placeholder="10"
             />
           )}
         />
+
+        <Controller
+          control={control}
+          name="date"
+          render={({ field: { onChange, value } }) => (
+            <DatePicker
+              label="Data da avaliação"
+              placeholder="dd/mm/aaaa"
+              value={value}
+              onChange={onChange}
+            />
+          )}
+        />
+
+        <View style={styles.row}>
+          <View style={styles.column}>
+            <Controller
+              control={control}
+              name="startTime"
+              render={({ field: { onChange, value } }) => (
+                <InputText
+                  label="Horário de início"
+                  containerStyle={styles.inputContainer}
+                  value={value}
+                  onChangeText={(text) => onChange(formatTimeInput(text))}
+                  variant="light"
+                  keyboardType="numeric"
+                  maxLength={5}
+                  placeholder="08:00"
+                />
+              )}
+            />
+          </View>
+          <View style={styles.columnLast}>
+            <Controller
+              control={control}
+              name="endTime"
+              render={({ field: { onChange, value } }) => (
+                <InputText
+                  label="Horário de término"
+                  containerStyle={styles.inputContainer}
+                  value={value}
+                  onChangeText={(text) => onChange(formatTimeInput(text))}
+                  variant="light"
+                  keyboardType="numeric"
+                  maxLength={5}
+                  placeholder="10:00"
+                />
+              )}
+            />
+          </View>
+        </View>
+
         <Button
-          title={isGenerating ? 'Gerando...' : 'Gerar texto com IA'}
-          onPress={handleSubmit(handleGenerateWithAI)}
+          title={isSaving ? 'Salvando...' : 'Salvar alterações'}
+          onPress={handleSubmit(onSubmit)}
           variant="primary"
-          style={styles.generateButton}
-          disabled={isGenerating}
-          loading={isGenerating}
+          style={styles.saveButton}
+          disabled={isSaving}
         />
       </View>
+
+      {/* Seção de IA comentada para implementação futura
+      <View style={styles.aiSection}>
+        <Text style={styles.aiPromptTitle}>
+          🤖 Assistente de IA (em breve)
+        </Text>
+        <Text style={styles.aiDescription}>
+          Em breve você poderá usar IA para gerar descrições automáticas para suas avaliações.
+        </Text>
+      </View>
+      */}
     </ScrollView>
   );
 };
@@ -208,76 +317,52 @@ const styles = StyleSheet.create({
   evaluationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
   },
   evaluationIcon: {
     fontSize: 32,
     marginRight: theme.spacing.sm,
   },
-  evaluationGrade: {
-    fontSize: theme.typography.fontSize.xl,
-    fontWeight: '700',
-    color: theme.colors.greenGood,
-    marginRight: theme.spacing.sm,
-  },
   evaluationName: {
-    fontSize: theme.typography.fontSize.xl,
+    fontSize: theme.typography.fontSize.xxl,
     fontWeight: '700',
     color: theme.colors.black,
-  },
-  instruction: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.gray,
-    marginBottom: theme.spacing.xl,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.xxl,
-    marginBottom: theme.spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    opacity: 0.3,
-    marginBottom: theme.spacing.md,
-  },
-  emptyText: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.gray,
-    textAlign: 'center',
   },
   formSection: {
     marginBottom: theme.spacing.xl,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.md,
+    fontSize: theme.typography.fontSize.lg,
     fontWeight: '600',
     color: theme.colors.black,
     marginBottom: theme.spacing.md,
   },
-  textAreaContainer: {
-    minHeight: 120,
-  },
-  aiSection: {
-    backgroundColor: theme.colors.backgroundLight,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    marginTop: theme.spacing.lg,
-  },
-  aiPromptTitle: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: '600',
-    color: theme.colors.black,
+  inputContainer: {
     marginBottom: theme.spacing.md,
   },
-  aiInputContainer: {
+  row: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  generateButton: {
-    marginTop: theme.spacing.sm,
+  column: {
+    flex: 1,
+  },
+  columnLast: {
+    flex: 1,
   },
   saveButton: {
     marginTop: theme.spacing.md,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.grayDark,
   },
 });
 
