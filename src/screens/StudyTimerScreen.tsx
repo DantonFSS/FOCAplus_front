@@ -87,7 +87,7 @@ export const StudyTimerScreen: React.FC = () => {
       
       console.log('💾 Criando sessão de estudo no backend...');
       // Criar sessão de estudo
-      await studySessionsApi.create({
+      const createdSession = await studySessionsApi.create({
         userCourseId: disciplineData.userCourseId,
         disciplineInstanceId: disciplineId,
         sessionType: mapStudyTypeToEnum(studyType || 'Estudar Conteúdo'),
@@ -97,14 +97,38 @@ export const StudyTimerScreen: React.FC = () => {
         startedAt: startedAt.toISOString(),
         endedAt: endedAt.toISOString(),
       });
-      console.log('✅ Sessão de estudo criada com sucesso!');
+      console.log('✅ Sessão de estudo criada com sucesso!', createdSession.id);
+      console.log('💰 Pontos da sessão:', createdSession.pointsEarned);
       
-      // Os pontos são salvos automaticamente pelo backend quando a sessão é criada
-      // Buscar total de pontos da disciplina após criar a sessão
-      console.log('📊 Buscando total de pontos da disciplina...');
-      const allScores = await scoresApi.getByDiscipline(disciplineId);
+      // Verificar se já existe um score record para esta sessão
+      console.log('📊 Verificando scores existentes...');
+      let allScores = await scoresApi.getByDiscipline(disciplineId);
+      const existingScoreForSession = allScores.find(
+        score => score.sourceId === createdSession.id && score.sourceType === 'STUDY_SESSION'
+      );
+      
+      if (!existingScoreForSession || existingScoreForSession.points === 0) {
+        console.log('⚠️ Score record não encontrado ou com pontos 0. O backend precisa criar automaticamente.');
+        console.log('💡 O backend deve criar um ScoreRecord no StudySessionService.createSession()');
+        console.log('💡 com sourceType=STUDY_SESSION, sourceId=sessão.id, points=pointsEarned');
+      } else {
+        console.log('✅ Score record encontrado:', existingScoreForSession);
+      }
+      
+      // Buscar total de pontos da disciplina (soma todos os scores)
       totalPoints = allScores.reduce((sum, record) => sum + record.points, 0);
       console.log('📊 Total de pontos na disciplina:', totalPoints);
+      console.log('📋 Total de scores encontrados:', allScores.length);
+      
+      // Se o score record não existe ou tem pontos 0, usar os pontos calculados para exibição
+      if (!existingScoreForSession || existingScoreForSession.points === 0) {
+        console.log('⚠️ Usando pontos calculados para exibição:', pointsEarned);
+        // Somar os pontos calculados ao total existente (exceto o score com 0 pontos)
+        const scoresWithPoints = allScores.filter(s => s.points > 0);
+        const existingTotal = scoresWithPoints.reduce((sum, record) => sum + record.points, 0);
+        totalPoints = existingTotal + pointsEarned;
+        console.log('📊 Total ajustado (incluindo pontos calculados):', totalPoints);
+      }
     } catch (error: any) {
       console.error('❌ Erro ao salvar sessão/pontos:', error);
       console.error('📋 Detalhes do erro:', error?.response?.data || error?.message);

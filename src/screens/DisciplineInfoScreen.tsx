@@ -10,6 +10,7 @@ import { disciplineInstancesApi, DisciplineInstanceResponse, disciplinesApi } fr
 import { disciplineSchedulesApi, DisciplineScheduleResponse } from '../api/disciplineSchedules';
 import { disciplineTeachersApi, DisciplineTeacherResponse } from '../api/disciplineTeachers';
 import { assessmentsApi, AssessmentResponse } from '../api/assessments';
+import { tasksApi, TaskResponse } from '../api/tasks';
 import { scoresApi } from '../api/scores';
 import { Alert } from 'react-native';
 
@@ -35,6 +36,8 @@ export const DisciplineInfoScreen: React.FC = () => {
   const [teacherInput, setTeacherInput] = useState('');
   const [assessments, setAssessments] = useState<AssessmentResponse[]>([]);
   const [isLoadingAssessments, setIsLoadingAssessments] = useState(false);
+  const [tasks, setTasks] = useState<TaskResponse[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
@@ -97,12 +100,13 @@ export const DisciplineInfoScreen: React.FC = () => {
         }
         console.log('✅ Discipline instance carregada:', disciplineData.name);
         
-        // Carregar horários, docentes, avaliações e pontuação da disciplina
+        // Carregar horários, docentes, avaliações, tarefas e pontuação da disciplina
         // All these are linked to discipline INSTANCE
         await loadScore(disciplineData.id);
         await loadSchedules(disciplineData.id);
         await loadTeachers(disciplineData.id);
         await loadAssessments(disciplineData.id);
+        await loadTasks(disciplineData.id);
       } catch (error) {
         console.error('❌ Erro ao carregar disciplina instance:', error);
         Alert.alert('Erro', 'Não foi possível carregar a disciplina.');
@@ -130,7 +134,7 @@ export const DisciplineInfoScreen: React.FC = () => {
     try {
       console.log('📊 Carregando pontuação para disciplina:', instanceId);
       const scores = await scoresApi.getByDiscipline(instanceId);
-      console.log('📋 Scores recebidos:', scores);
+      console.log('📋 Scores recebidos:', scores);''
       const total = scores.reduce((sum, record) => sum + record.points, 0);
       console.log('💰 Total calculado:', total);
       setTotalScore(total);
@@ -323,6 +327,55 @@ export const DisciplineInfoScreen: React.FC = () => {
     }
   };
 
+  // Carregar tarefas do backend
+  const loadTasks = async (instanceId: string) => {
+    setIsLoadingTasks(true);
+    try {
+      const loaded = await tasksApi.getByDiscipline(instanceId);
+      setTasks(loaded);
+    } catch (error) {
+      console.error('❌ Erro ao carregar tarefas:', error);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
+  // Criar tarefa simples
+  const handleCreateTask = async () => {
+    if (!discipline?.id) {
+      Alert.alert('Erro', 'Disciplina não encontrada.');
+      return;
+    }
+
+    if (!discipline.userCourseId) {
+      Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
+      return;
+    }
+
+    try {
+      const newTask = await tasksApi.create({
+        disciplineInstanceId: discipline.id,
+        title: `Tarefa ${tasks.length + 1}`,
+      });
+      setTasks([...tasks, newTask]);
+    } catch (error) {
+      console.error('❌ Erro ao criar tarefa:', error);
+      Alert.alert('Erro', 'Não foi possível criar a tarefa.');
+    }
+  };
+
+  // Alternar concluído
+  const handleToggleTaskComplete = async (task: TaskResponse) => {
+    try {
+      const updated = await tasksApi.toggleComplete(task.id, !task.completed);
+      const updatedTask = updated.task;
+      setTasks(tasks.map(t => (t.id === updatedTask.id ? updatedTask : t)));
+    } catch (error) {
+      console.error('❌ Erro ao atualizar tarefa:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar a tarefa.');
+    }
+  };
+
   // Iniciar edição do nome
   const handleStartEditName = () => {
     if (discipline?.name) {
@@ -351,7 +404,7 @@ export const DisciplineInfoScreen: React.FC = () => {
 
     setIsSavingName(true);
     try {
-      const updated = await disciplineInstancesApi.update(discipline.id, {
+      const updated = await disciplinesApi.update(discipline.id, {
         name: editedName.trim(),
       });
       
@@ -410,15 +463,11 @@ export const DisciplineInfoScreen: React.FC = () => {
                 <Text style={styles.nameEditButtonText}>✕</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.nameEditButton, styles.nameSaveButton, isSavingName && styles.nameEditButtonDisabled]}
+                style={[styles.nameEditButton, styles.nameSaveButton]}
                 onPress={handleSaveName}
                 disabled={isSavingName}
               >
-                {isSavingName ? (
-                  <ActivityIndicator size="small" color={theme.colors.white} />
-                ) : (
-                  <Text style={styles.nameEditButtonText}>✓</Text>
-                )}
+                <Text style={styles.nameEditButtonText}>✓</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -560,7 +609,7 @@ export const DisciplineInfoScreen: React.FC = () => {
       <View style={styles.actionButtons}>
         <Button
           title="Tarefas de casa"
-          onPress={() => (navigation as any).navigate('Tasks')}
+          onPress={handleCreateTask}
           variant="primary"
           style={styles.actionButton}
         />
@@ -571,6 +620,34 @@ export const DisciplineInfoScreen: React.FC = () => {
           style={styles.actionButton}
         />
       </View>
+
+      {/* Lista simples de tarefas */}
+      {isLoadingTasks ? (
+        <View style={styles.tasksContainer}>
+          <ActivityIndicator size="small" color={theme.colors.blueLight} />
+          <Text style={styles.tasksLoadingText}>Carregando tarefas...</Text>
+        </View>
+      ) : tasks.length > 0 ? (
+        <View style={styles.tasksContainer}>
+          <Text style={styles.tasksTitle}>Tarefas</Text>
+          {tasks.map(task => (
+            <TouchableOpacity
+              key={task.id}
+              style={[styles.taskItem, task.completed && styles.taskItemCompleted]}
+              onPress={() => handleToggleTaskComplete(task)}
+            >
+              <Text
+                style={[
+                  styles.taskTitle,
+                  task.completed && styles.taskTitleCompleted,
+                ]}
+              >
+                {task.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
 
       {/* Start Study Button */}
       <TouchableOpacity
@@ -827,9 +904,6 @@ const styles = StyleSheet.create({
   nameSaveButton: {
     backgroundColor: theme.colors.blueLight,
   },
-  nameEditButtonDisabled: {
-    opacity: 0.6,
-  },
   nameEditButtonText: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: '700',
@@ -1049,6 +1123,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.white,
     textAlign: 'center',
+  },
+  tasksContainer: {
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  tasksTitle: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: '600',
+    color: theme.colors.black,
+    marginBottom: theme.spacing.sm,
+  },
+  tasksLoadingText: {
+    marginTop: theme.spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.grayDark,
+  },
+  taskItem: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.backgroundLight,
+    marginBottom: theme.spacing.xs,
+  },
+  taskItemCompleted: {
+    backgroundColor: theme.colors.grayLight,
+  },
+  taskTitle: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.black,
+  },
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: theme.colors.grayDark,
   },
   loadingContainer: {
     justifyContent: 'center',
