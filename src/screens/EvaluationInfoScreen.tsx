@@ -152,7 +152,7 @@ export const EvaluationInfoScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Detalhes da Avaliação</Text>
+        <Text style={styles.headerTitle}>{displayName}</Text>
       </View>
 
       {/* Evaluation Header */}

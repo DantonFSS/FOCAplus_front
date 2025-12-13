@@ -270,7 +270,7 @@ export const PeriodInfoScreen: React.FC = () => {
           <Text style={styles.backArrow}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? "Período Info Editando" : "Período Info"}
+          {period?.name || 'Período'}
         </Text>
       </View>
 

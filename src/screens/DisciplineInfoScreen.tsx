@@ -424,7 +424,7 @@ export const DisciplineInfoScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Disciplina_Info</Text>
+        <Text style={styles.headerTitle}>{discipline?.name || 'Disciplina'}</Text>
       </View>
 
       {/* Discipline Title */}

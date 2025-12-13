@@ -50,6 +50,15 @@ export const HomeScreen: React.FC = () => {
         <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
       }
     >
+      <View style={styles.menuBar}>
+        <TouchableOpacity
+          onPress={() => (navigation as any).openDrawer()}
+          style={styles.menuButton}
+        >
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.header}>
         <Text style={styles.title}>Começar</Text>
         <Text style={styles.subtitle}>Estamos felizes que você esteja aqui.</Text>
@@ -196,6 +205,18 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: theme.spacing.lg,
+  },
+  menuBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  menuButton: {
+    padding: theme.spacing.sm,
+  },
+  menuIcon: {
+    fontSize: 28,
+    color: theme.colors.black,
   },
   header: {
     marginBottom: theme.spacing.xl,

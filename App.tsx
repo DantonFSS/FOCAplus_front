@@ -113,13 +113,17 @@ function AppNavigator() {
           ),
         })}
       >
-        <Drawer.Screen name="Home" component={MainStack} options={{ headerShown: false }} />
+        <Drawer.Screen 
+          name="Home" 
+          component={MainStack} 
+          options={{ headerShown: false }}
+        />
         <Drawer.Screen name="Pro" component={ProScreen} />
         <Drawer.Screen name="CreateGroup" component={CreateGroupScreen} />
         <Drawer.Screen 
           name="CourseCreation" 
           component={NewCourseScreen}
-          options={{ headerShown: false }}
+          options={{ headerShown: true }}
         />
       </Drawer.Navigator>
       <StatusBar style="dark" />

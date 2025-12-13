@@ -276,7 +276,7 @@ export const CourseInfoScreen: React.FC = () => {
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? "Curso Info Editando" : "Curso Info"}
+          {currentUserCourse?.name || 'Curso'}
         </Text>
       </View>
 
