@@ -10,4 +10,8 @@ export { AddDisciplinesScreen } from './AddDisciplinesScreen';
 export { CourseInfoScreen } from './CourseInfoScreen';
 export { DisciplineInfoScreen } from './DisciplineInfoScreen';
 export { EvaluationInfoScreen } from './EvaluationInfoScreen';
+export { EstudandoScreen } from './EstudandoScreen';
+export { StudyTimerScreen } from './StudyTimerScreen';
+export { PomodoroScreen } from './PomodoroScreen';
+export { StudyFinishedScreen } from './StudyFinishedScreen';
 

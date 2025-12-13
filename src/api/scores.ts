@@ -31,4 +31,14 @@ export const scoresApi = {
     );
     return response.data;
   },
+
+  create: async (data: {
+    disciplineInstanceId: string;
+    sourceType: string;
+    sourceId?: string;
+    points: number;
+  }): Promise<ScoreRecordResponse> => {
+    const response = await apiClient.post<ScoreRecordResponse>('/score-records', data);
+    return response.data;
+  },
 };

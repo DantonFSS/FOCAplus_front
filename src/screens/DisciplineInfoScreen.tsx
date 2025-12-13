@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Button } from '../components/Button';
 import { InputText } from '../components/InputText';
 import { SelectDropdown } from '../components/SelectDropdown';
@@ -118,13 +118,27 @@ export const DisciplineInfoScreen: React.FC = () => {
     loadDiscipline();
   }, [disciplineId]);
 
+  // Recarregar pontuação quando a tela receber foco (quando voltar de outras telas)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (disciplineId) {
+        console.log('🔄 Recarregando pontuação (useFocusEffect)...');
+        loadScore(disciplineId);
+      }
+    }, [disciplineId])
+  );
+
   // Carregar pontuação do backend
   const loadScore = async (instanceId: string) => {
     setIsLoadingScore(true);
     try {
+      console.log('📊 Carregando pontuação para disciplina:', instanceId);
       const scores = await scoresApi.getByDiscipline(instanceId);
+      console.log('📋 Scores recebidos:', scores);
       const total = scores.reduce((sum, record) => sum + record.points, 0);
+      console.log('💰 Total calculado:', total);
       setTotalScore(total);
+      console.log('✅ Pontuação atualizada no estado:', total);
     } catch (error) {
       console.error('❌ Erro ao carregar pontuação:', error);
     } finally {
@@ -429,7 +443,7 @@ export const DisciplineInfoScreen: React.FC = () => {
 
       {/* Discipline Title */}
       <View style={styles.disciplineHeader}>
-        <Text style={styles.disciplineIcon}>🧠</Text>
+        <Text style={styles.disciplineIcon}></Text>
         {isEditingName ? (
           <View style={styles.nameEditContainer}>
             <InputText
@@ -464,7 +478,7 @@ export const DisciplineInfoScreen: React.FC = () => {
               style={styles.editNameButton}
               onPress={handleStartEditName}
             >
-              <Text style={styles.editNameIcon}>✏️</Text>
+              <Image source={require('../../assets/pencil_icon.png')} style={styles.editNameIcon} />
             </TouchableOpacity>
           </>
         )}
@@ -480,7 +494,7 @@ export const DisciplineInfoScreen: React.FC = () => {
         {/* Horários e dias */}
         <View style={styles.detailSection}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailIcon}>⏰</Text>
+            <Image source={require('../../assets/empty_calendar_icon.png')} style={styles.detailIcon} />
             <Text style={styles.detailLabel}>Horários e dias</Text>
           </View>
           {isLoadingSchedules ? (
@@ -511,7 +525,7 @@ export const DisciplineInfoScreen: React.FC = () => {
         {/* Docente(s) */}
         <View style={styles.detailSection}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailIcon}>👤</Text>
+            <Image source={require('../../assets/docente_user_icon.png')} style={styles.detailIcon} />
             <Text style={styles.detailLabel}>Docente(s)</Text>
           </View>
           {isLoadingTeachers ? (
@@ -553,7 +567,7 @@ export const DisciplineInfoScreen: React.FC = () => {
         {/* Avaliações */}
         <View style={styles.detailSection}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailIcon}>📄</Text>
+            <Image source={require('../../assets/sheet_icon.png')} style={styles.detailIcon} />
             <Text style={styles.detailLabel}>Avaliações</Text>
             <View style={styles.evaluationControls}>
               <TouchableOpacity
@@ -639,7 +653,10 @@ export const DisciplineInfoScreen: React.FC = () => {
       <TouchableOpacity
         style={styles.startStudyButton}
         onPress={() => {
-          Alert.alert('Em breve', 'O modo de estudo ainda será implementado.');
+          (navigation as any).navigate('Estudando', {
+            disciplineName: displayName,
+            disciplineId: disciplineId,
+          });
         }}
         activeOpacity={0.8}
       >
@@ -858,7 +875,9 @@ const styles = StyleSheet.create({
     marginLeft: theme.spacing.sm,
   },
   editNameIcon: {
-    fontSize: 20,
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
   },
   nameEditContainer: {
     flex: 1,
@@ -920,7 +939,9 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   detailIcon: {
-    fontSize: 20,
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
     marginRight: theme.spacing.sm,
   },
   detailLabel: {
@@ -1077,29 +1098,31 @@ const styles = StyleSheet.create({
   startStudyButton: {
     backgroundColor: theme.colors.blueLight,
     borderRadius: theme.borderRadius.round,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    flexDirection: 'row',
+    width: 120,
+    height: 120,
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    minWidth: 200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 6,
     elevation: 4,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   startStudyIcon: {
-    width: 28,
-    height: 28,
+    width: 40,
+    height: 40,
     resizeMode: 'contain',
-    marginRight: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
   startStudyText: {
-    fontSize: theme.typography.fontSize.lg,
+    fontSize: theme.typography.fontSize.sm,
     fontWeight: '700',
     color: theme.colors.white,
+    textAlign: 'center',
   },
   tasksContainer: {
     marginTop: theme.spacing.lg,
