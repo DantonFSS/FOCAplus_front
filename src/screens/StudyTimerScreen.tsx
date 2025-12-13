@@ -16,10 +16,10 @@ export const StudyTimerScreen: React.FC = () => {
     disciplineId?: string;
   };
 
-  const [time, setTime] = useState(0); // tempo em segundos
+  const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const startedAtRef = useRef<Date>(new Date()); // Momento em que o estudo começou
+  const startedAtRef = useRef<Date>(new Date());
 
   useEffect(() => {
     if (isRunning) {
@@ -60,15 +60,7 @@ export const StudyTimerScreen: React.FC = () => {
       return;
     }
 
-    console.log('🎯 Finalizando estudo - Cronômetro');
-    console.log('⏱️ Tempo estudado:', time, 'segundos');
-    console.log('📚 Tipo de estudo:', studyType);
-
-    // Calcular XP baseado no tempo e tipo de estudo
     const pointsEarned = calculateXP(time, studyType || 'Estudar Conteúdo');
-    console.log('💰 Pontos calculados:', pointsEarned);
-    
-    // Mapear tipo de estudo para enum (valores do backend)
     const mapStudyTypeToEnum = (type: string): StudySessionType => {
       if (type === 'Estudar para Avaliação') return StudySessionType.ASSESSMENT;
       if (type === 'Fazer Tarefa de casa') return StudySessionType.HOMEWORK;
@@ -79,14 +71,11 @@ export const StudyTimerScreen: React.FC = () => {
     let totalPoints = pointsEarned;
     
     try {
-      // Buscar dados da disciplina para obter userCourseId
       const disciplineData = await disciplineInstancesApi.getById(disciplineId);
       
       const endedAt = new Date();
       const startedAt = startedAtRef.current;
       
-      console.log('💾 Criando sessão de estudo no backend...');
-      // Criar sessão de estudo
       const createdSession = await studySessionsApi.create({
         userCourseId: disciplineData.userCourseId,
         disciplineInstanceId: disciplineId,
@@ -97,62 +86,27 @@ export const StudyTimerScreen: React.FC = () => {
         startedAt: startedAt.toISOString(),
         endedAt: endedAt.toISOString(),
       });
-      console.log('✅ Sessão de estudo criada com sucesso!', createdSession.id);
-      console.log('💰 Pontos da sessão:', createdSession.pointsEarned);
       
-      // Verificar se já existe um score record para esta sessão
-      console.log('📊 Verificando scores existentes...');
       let allScores = await scoresApi.getByDiscipline(disciplineId);
       const existingScoreForSession = allScores.find(
         score => score.sourceId === createdSession.id && score.sourceType === 'STUDY_SESSION'
       );
       
-      if (!existingScoreForSession || existingScoreForSession.points === 0) {
-        console.log('⚠️ Score record não encontrado ou com pontos 0. O backend precisa criar automaticamente.');
-        console.log('💡 O backend deve criar um ScoreRecord no StudySessionService.createSession()');
-        console.log('💡 com sourceType=STUDY_SESSION, sourceId=sessão.id, points=pointsEarned');
-      } else {
-        console.log('✅ Score record encontrado:', existingScoreForSession);
-      }
-      
-      // Buscar total de pontos da disciplina (soma todos os scores)
       totalPoints = allScores.reduce((sum, record) => sum + record.points, 0);
-      console.log('📊 Total de pontos na disciplina:', totalPoints);
-      console.log('📋 Total de scores encontrados:', allScores.length);
       
-      // Se o score record não existe ou tem pontos 0, usar os pontos calculados para exibição
       if (!existingScoreForSession || existingScoreForSession.points === 0) {
-        console.log('⚠️ Usando pontos calculados para exibição:', pointsEarned);
-        // Somar os pontos calculados ao total existente (exceto o score com 0 pontos)
         const scoresWithPoints = allScores.filter(s => s.points > 0);
         const existingTotal = scoresWithPoints.reduce((sum, record) => sum + record.points, 0);
         totalPoints = existingTotal + pointsEarned;
-        console.log('📊 Total ajustado (incluindo pontos calculados):', totalPoints);
       }
     } catch (error: any) {
-      console.error('❌ Erro ao salvar sessão/pontos:', error);
-      console.error('📋 Detalhes do erro:', error?.response?.data || error?.message);
-      // Continua mesmo se houver erro ao salvar, mas mostra o total atual
       try {
         const allScores = await scoresApi.getByDiscipline(disciplineId);
         totalPoints = allScores.reduce((sum, record) => sum + record.points, 0);
       } catch (e) {
-        console.error('❌ Erro ao buscar pontos:', e);
       }
     }
     
-    console.log('🚀 Navegando para StudyFinished...');
-    console.log('📦 Parâmetros:', {
-      disciplineName,
-      disciplineId,
-      studyType,
-      timeSpent: time,
-      pointsEarned,
-      totalPoints,
-      method: 'cronometro',
-    });
-    
-    // Navegar para a tela de estudo finalizado
     try {
       (navigation as any).navigate('StudyFinished', {
         disciplineName,
@@ -163,23 +117,19 @@ export const StudyTimerScreen: React.FC = () => {
         totalPoints,
         method: 'cronometro',
       });
-      console.log('✅ Navegação realizada!');
     } catch (navError) {
-      console.error('❌ Erro na navegação:', navError);
       Alert.alert('Erro', 'Não foi possível navegar para a tela de conclusão.');
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Voltar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Icon and Title */}
       <View style={styles.titleSection}>
         <Image 
           source={require('../../assets/book_alt.png')} 
@@ -189,7 +139,6 @@ export const StudyTimerScreen: React.FC = () => {
         <Text style={styles.studyType}>{studyType || 'Estudar'}</Text>
       </View>
 
-      {/* Timer Circle */}
       <View style={styles.timerContainer}>
         <View style={styles.timerCircle}>
           <Text style={styles.timerText}>{formatTime(time)}</Text>
@@ -200,7 +149,6 @@ export const StudyTimerScreen: React.FC = () => {
         />
       </View>
 
-      {/* Motivational Message */}
       <View style={styles.messageContainer}>
         <Text style={styles.messageText}>
           Mantenha o foco,{'\n'}
@@ -208,7 +156,6 @@ export const StudyTimerScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={styles.pauseButton}

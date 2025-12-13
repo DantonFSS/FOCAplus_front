@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs
 export interface CreateDisciplineTemplateRequest {
   periodTemplateId: string;
   name: string;
@@ -70,7 +69,6 @@ export const disciplinesApi = {
   },
 };
 
-// Discipline Instance DTOs
 export interface DisciplineInstanceResponse {
   id: string;
   userCourseId: string;

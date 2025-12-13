@@ -22,7 +22,6 @@ export const AddDisciplinesScreen: React.FC = () => {
   const periodTemplateIdFromParams = (route.params as any)?.periodTemplateId as string | undefined | null;
   const [periodTemplateId, setPeriodTemplateId] = useState<string | null>(periodTemplateIdFromParams ?? null);
 
-  // Atualizar periodTemplateId quando os params mudarem
   useEffect(() => {
     if (periodTemplateIdFromParams) {
       setPeriodTemplateId(periodTemplateIdFromParams);
@@ -48,10 +47,6 @@ export const AddDisciplinesScreen: React.FC = () => {
   const disciplineCount = watch('disciplineCount');
   const disciplineFields = watch('disciplines');
 
-  // Não tentar resolver periodTemplateId automaticamente (pode dar 403)
-  // O periodTemplateId deve vir sempre dos params de navegação
-
-  // Carregar disciplinas existentes do backend
   useEffect(() => {
     const loadDisciplines = async () => {
       if (!periodTemplateId) return;
@@ -61,18 +56,15 @@ export const AddDisciplinesScreen: React.FC = () => {
         const disciplines = await disciplinesApi.getByPeriod(periodTemplateId);
         setLoadedDisciplines(disciplines);
 
-        // Converter para o formato esperado pela tela anterior
         const formattedDisciplines = disciplines.map((d, index) => ({
           id: index + 1,
           name: d.name,
         }));
 
-        // Atualizar existingDisciplines se necessário
         if (formattedDisciplines.length > 0 && existingDisciplines.length === 0) {
           (route.params as any).existingDisciplines = formattedDisciplines;
         }
       } catch (error) {
-        console.error('❌ Erro ao carregar disciplinas:', error);
       } finally {
         setIsLoadingDisciplines(false);
       }
@@ -90,7 +82,6 @@ export const AddDisciplinesScreen: React.FC = () => {
   };
 
   const onSubmit = async (data: DisciplineFormData) => {
-    // Usar periodTemplateId dos params (mais confiável) ou do estado
     const effectivePeriodTemplateId = periodTemplateIdFromParams || periodTemplateId;
     
     if (!effectivePeriodTemplateId) {
@@ -103,7 +94,6 @@ export const AddDisciplinesScreen: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Filtrar apenas disciplinas com nome preenchido e normalizar
       const disciplineNames = data.disciplines
         .map((d) => d.name.trim())
         .filter((name) => name.length > 0)
@@ -115,7 +105,6 @@ export const AddDisciplinesScreen: React.FC = () => {
         return;
       }
 
-      // Verificar duplicatas com disciplinas já existentes
       const existingNames = loadedDisciplines.map((d) => d.name.toLowerCase());
       const duplicates = disciplineNames.filter((name) => existingNames.includes(name));
       
@@ -128,7 +117,6 @@ export const AddDisciplinesScreen: React.FC = () => {
         return;
       }
 
-      // Verificar duplicatas dentro da própria lista de novas disciplinas
       const uniqueNames = Array.from(new Set(disciplineNames));
       if (uniqueNames.length !== disciplineNames.length) {
         Alert.alert(
@@ -139,12 +127,10 @@ export const AddDisciplinesScreen: React.FC = () => {
         return;
       }
 
-      // Converter de volta para o formato original (com primeira letra maiúscula)
       const formattedNames = disciplineNames.map((name) => 
         name.charAt(0).toUpperCase() + name.slice(1)
       );
 
-      // Criar disciplinas no backend usando batch create
       const createdDisciplines = await disciplinesApi.batchCreate({
         periodTemplateId: effectivePeriodTemplateId,
         names: formattedNames,
@@ -152,10 +138,8 @@ export const AddDisciplinesScreen: React.FC = () => {
 
       Alert.alert('Sucesso', `${createdDisciplines.length} disciplina(s) criada(s) com sucesso!`);
 
-      // Recarregar todas as disciplinas do backend para garantir consistência
       const allDisciplinesFromBackend = await disciplinesApi.getByPeriod(effectivePeriodTemplateId);
 
-      // Voltar para a tela PeriodInfo passando as disciplinas atualizadas
       (navigation as any).navigate('PeriodInfo', {
         periodNumber,
         createdCourse,
@@ -163,7 +147,6 @@ export const AddDisciplinesScreen: React.FC = () => {
         updatedDisciplines: allDisciplinesFromBackend,
       });
     } catch (error: any) {
-      console.error('❌ Erro ao salvar disciplinas:', error);
       Alert.alert(
         'Erro',
         error.response?.data?.message || 'Erro ao salvar disciplinas. Tente novamente.'
@@ -188,7 +171,6 @@ export const AddDisciplinesScreen: React.FC = () => {
         <Text style={styles.headerTitle}>Adicionar Disciplinas</Text>
       </View>
 
-      {/* Mostrar disciplinas existentes */}
       {isLoadingDisciplines ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={theme.colors.blueLight} />
@@ -273,7 +255,6 @@ export const AddDisciplinesScreen: React.FC = () => {
           <Button
             title={isLoading ? "Salvando..." : "Salvar"}
             onPress={handleSubmit(onSubmit, (errors) => {
-              console.log('❌ Erros de validação:', errors);
               Alert.alert('Erro de validação', 'Por favor, verifique os campos preenchidos.');
             })}
             variant="primary"

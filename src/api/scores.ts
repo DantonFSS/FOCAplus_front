@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs
 export interface ScoreRecordResponse {
   id: string;
   userId: string;

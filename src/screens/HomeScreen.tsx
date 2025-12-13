@@ -17,14 +17,12 @@ export const HomeScreen: React.FC = () => {
       const coursesList = await userCoursesApi.getAll();
       setCourses(coursesList);
     } catch (error) {
-      console.error('❌ Erro ao carregar cursos:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  // Carregar cursos quando a tela é focada
   useFocusEffect(
     React.useCallback(() => {
       loadCourses();

@@ -46,10 +46,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setAccessToken(storedAccessToken);
         setRefreshToken(storedRefreshToken);
         
-        // Configurar token no apiClient
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedAccessToken}`;
         
-        // Se não tem user salvo, buscar do backend
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         } else {
@@ -59,7 +57,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsAuthenticated(true);
       }
     } catch (error) {
-      console.error('Error loading stored auth:', error);
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +69,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(userData);
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     } catch (error) {
-      console.error('Error loading user:', error);
     }
   };
 
@@ -86,15 +82,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setAccessToken(authData.accessToken);
       setRefreshToken(authData.refreshToken);
       
-      // Configurar token no apiClient
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${authData.accessToken}`;
       
-      // Buscar dados do usuário do backend
       await loadUser(authData.accessToken);
       
       setIsAuthenticated(true);
     } catch (error) {
-      console.error('Error saving auth data:', error);
       throw error;
     }
   };
@@ -107,7 +100,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         AsyncStorage.removeItem(STORAGE_KEYS.USER),
       ]);
 
-      // Remover token do apiClient
       delete apiClient.defaults.headers.common['Authorization'];
 
       setAccessToken(null);
@@ -115,7 +107,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
-      console.error('Error clearing auth data:', error);
     }
   };
 

@@ -40,7 +40,6 @@ const DIVISION_QUANTITY_OPTIONS = Array.from({ length: 15 }, (_, i) => ({
   value: (i + 1).toString(),
 }));
 
-// Função para converter data de dd/mm/aaaa para yyyy-mm-dd (ISO)
 const convertDateToISO = (dateStr: string): string => {
   if (!dateStr) return '';
   const parts = dateStr.split('/');
@@ -79,9 +78,6 @@ export const NewCourseScreen: React.FC = () => {
     setApiError(null);
 
     try {
-      console.log('📝 Criando curso:', data);
-
-      // Converter dados do formulário para o formato do backend
       const courseData = {
         name: data.courseName.trim(),
         level: mapLevelToBackend(data.level),
@@ -92,11 +88,7 @@ export const NewCourseScreen: React.FC = () => {
         endDate: convertDateToISO(data.endDate),
       };
 
-      console.log('📤 Enviando para API:', courseData);
       const createdCourse = await coursesApi.create(courseData);
-      console.log('✅ Curso criado com sucesso:', createdCourse);
-
-      // Buscar o UserCourse do OWNER (backend cria automaticamente)
       const userCourses = await userCoursesApi.getAll();
       const ownerUserCourse = userCourses.find(
         (uc) => uc.templateId === createdCourse.id && uc.role === 'OWNER'
@@ -105,10 +97,6 @@ export const NewCourseScreen: React.FC = () => {
       if (!ownerUserCourse) {
         throw new Error('UserCourse do OWNER não encontrado');
       }
-
-      console.log('✅ UserCourse encontrado:', ownerUserCourse.userCourseId);
-
-      // Navegar para Home (MainStack) e então para CourseInfo
       (navigation as any).navigate('Home', {
         screen: 'CourseInfo',
         params: {
@@ -116,8 +104,6 @@ export const NewCourseScreen: React.FC = () => {
         },
       });
     } catch (error: any) {
-      console.error('❌ Erro ao criar curso:', error);
-      
       if (error.code === 'ECONNABORTED') {
         setApiError('Tempo de requisição esgotado. Verifique sua conexão.');
       } else if (error.code === 'ERR_NETWORK' || !error.response) {

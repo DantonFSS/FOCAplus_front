@@ -24,7 +24,6 @@ import { disciplineInstancesApi, DisciplineInstanceResponse } from "../api/disci
 import { BlurView } from "expo-blur";
 import { InputText } from "../components/InputText";
 
-// Frontend sempre trabalha com period instances
 type PeriodData = PeriodInstanceResponse;
 
 interface PeriodInfoFormData {
@@ -66,19 +65,15 @@ export const PeriodInfoScreen: React.FC = () => {
     },
   });
 
-  // Buscar período do backend (sempre instance)
   useEffect(() => {
     const loadPeriod = async () => {
       if (!periodId) {
-        console.warn("⚠️ Nenhum periodId foi recebido pela rota.");
         return;
       }
 
       setIsLoadingPeriod(true);
       try {
-        // Frontend sempre usa instances (tanto OWNER quanto MEMBER)
         const loadedPeriod = await periodInstancesApi.getById(periodId);
-        console.log("✅ Período instance carregado:", loadedPeriod);
 
         setPeriod(loadedPeriod);
 
@@ -90,7 +85,6 @@ export const PeriodInfoScreen: React.FC = () => {
           setValue("plannedEnd", convertDateFromISO(loadedPeriod.plannedEnd));
         }
       } catch (error) {
-        console.error("❌ Erro ao carregar período:", error);
         Alert.alert("Erro", "Não foi possível carregar o período.");
       } finally {
         setIsLoadingPeriod(false);
@@ -100,23 +94,17 @@ export const PeriodInfoScreen: React.FC = () => {
     loadPeriod();
   }, [periodId, setValue]);
 
-  // Carregar disciplinas do backend
-  // IMPORTANT: Always load discipline INSTANCES (both OWNER and MEMBER use instances)
-  // Teachers, schedules, tasks, etc. are all linked to instances
   const loadDisciplines = React.useCallback(async () => {
     const currentPeriodId = periodId || period?.id;
     if (!currentPeriodId) return;
 
     setIsLoadingDisciplines(true);
     try {
-      // Frontend sempre usa instances - periodId já é um instance ID
       const loadedDisciplines = await disciplineInstancesApi.getByPeriodInstance(
         currentPeriodId
       );
       setDisciplines(loadedDisciplines);
-      console.log(`✅ ${loadedDisciplines.length} discipline instances carregadas`);
     } catch (error) {
-      console.error("❌ Erro ao carregar disciplinas:", error);
     } finally {
       setIsLoadingDisciplines(false);
     }
@@ -126,14 +114,12 @@ export const PeriodInfoScreen: React.FC = () => {
     loadDisciplines();
   }, [loadDisciplines]);
 
-  // Recarregar disciplinas quando a tela receber foco (ao voltar de AddDisciplines)
   useFocusEffect(
     React.useCallback(() => {
       loadDisciplines();
     }, [loadDisciplines])
   );
 
-  // Função para converter data ISO para dd/mm/aaaa
   const convertDateFromISO = (isoDate: string): string => {
     try {
       const date = new Date(isoDate);
@@ -146,14 +132,12 @@ export const PeriodInfoScreen: React.FC = () => {
     }
   };
 
-  // Função para converter data dd/mm/aaaa para ISO
   const convertDateToISO = (dateStr: string): string | undefined => {
     if (!dateStr || dateStr.trim() === "") return undefined;
 
     try {
       const [day, month, year] = dateStr.split("/");
       const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      // Retorna ISO completo com timezone (ZonedDateTime no backend)
       return date.toISOString();
     } catch {
       return undefined;
@@ -170,10 +154,6 @@ export const PeriodInfoScreen: React.FC = () => {
     try {
       const plannedStartISO = convertDateToISO(data.plannedStart ?? "");
       const plannedEndISO = convertDateToISO(data.plannedEnd ?? "");
-
-      console.log("📝 Atualizando período instance:", period.id);
-
-      // Frontend sempre atualiza instances (backend detecta role internamente)
       const updated = await periodInstancesApi.update(period.id, {
         name: period.name,
         plannedStart: plannedStartISO,
@@ -195,7 +175,6 @@ export const PeriodInfoScreen: React.FC = () => {
       Alert.alert("Sucesso", "Período atualizado com sucesso!");
       setIsEditing(false);
     } catch (error: any) {
-      console.error("❌ Erro ao salvar período:", error);
       Alert.alert(
         "Erro",
         error.response?.data?.message ||
@@ -214,11 +193,6 @@ export const PeriodInfoScreen: React.FC = () => {
   const handleSaveDiscipline = async () => {
     const effectivePeriodId = period?.id || periodId;
 
-    console.log(
-      "📝 Salvando nova disciplina para período:",
-      effectivePeriodId
-    );
-
     if (!effectivePeriodId) {
       Alert.alert("Erro", "Período não encontrado.");
       return;
@@ -228,10 +202,7 @@ export const PeriodInfoScreen: React.FC = () => {
 
     setIsSavingDiscipline(true);
 
-    console.log("📝 Criando disciplina:", newDisciplineName.trim());
-
     try {
-      // Criar discipline template (backend auto-cria instance para o user)
       if (!period?.periodTemplateId) {
         Alert.alert("Erro", "Template do período não encontrado.");
         setIsSavingDiscipline(false);
@@ -242,19 +213,13 @@ export const PeriodInfoScreen: React.FC = () => {
         periodTemplateId: period.periodTemplateId,
         name: newDisciplineName.trim(),
       });
-
-      console.log("✅ Disciplina template criada (backend auto-cria instance).");
-
-      // Reload discipline instances (backend creates them automatically)
       await loadDisciplines();
 
-      // Limpa e fecha modal
       setNewDisciplineName("");
       setShowAddDisciplineModal(false);
       
       Alert.alert("Sucesso", "Disciplina criada com sucesso!");
     } catch (error: any) {
-      console.error("❌ Erro ao criar disciplina:", error);
       Alert.alert(
         "Erro",
         error.response?.data?.message || "Erro ao criar disciplina."
@@ -275,7 +240,6 @@ export const PeriodInfoScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Period Overview */}
       <View style={styles.periodOverview}>
         <View style={styles.periodNumberCircle}>
           <Text style={styles.periodNumber}>{period?.position}</Text>
@@ -283,7 +247,6 @@ export const PeriodInfoScreen: React.FC = () => {
         <Text style={styles.periodTitle}>{period?.name}</Text>
       </View>
 
-      {/* Information Card */}
       <View style={styles.infoCard}>
         {isEditing ? (
           <>
@@ -379,7 +342,6 @@ export const PeriodInfoScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Add Disciplines Button */}
       <Button
         title="+ Adicionar disciplinas"
         onPress={() => setShowAddDisciplineModal(true)}
@@ -428,7 +390,6 @@ export const PeriodInfoScreen: React.FC = () => {
         </BlurView>
       </Modal>
 
-      {/* Disciplines List */}
       {isLoadingDisciplines ? (
         <View style={styles.disciplinesLoadingContainer}>
           <ActivityIndicator size="small" color={theme.colors.blueLight} />
@@ -444,7 +405,6 @@ export const PeriodInfoScreen: React.FC = () => {
               key={discipline.id}
               style={styles.disciplineCard}
               onPress={() => {
-                // Navegar para informações da disciplina
                 (navigation as any).navigate("DisciplineInfo", {
                   disciplineId: discipline.id,
                 });

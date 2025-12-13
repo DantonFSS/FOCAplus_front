@@ -46,7 +46,6 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({ navigation, curren
       screen: 'Pro',
       disabled: false,
     },
-    // Gap antes de Configurações
     { 
       id: 'settings', 
       label: 'Configurações', 
@@ -101,10 +100,8 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({ navigation, curren
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top spacing */}
         <View style={styles.topSpacing} />
         
-        {/* Avatar e Nome do Usuário */}
         {user && (
           <View style={styles.profileSection}>
             <View style={styles.avatar}>
@@ -118,7 +115,6 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({ navigation, curren
           </View>
         )}
 
-        {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map((item, index) => {
             const isActive = 
@@ -128,7 +124,6 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({ navigation, curren
             
             return (
               <React.Fragment key={item.id}>
-                {/* Gap antes de Configurações */}
                 {isSettings && (
                   <View style={styles.gapBeforeSettings} />
                 )}
@@ -178,11 +173,9 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({ navigation, curren
           })}
         </View>
 
-        {/* Bottom spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Logout Button - Fora do ScrollView para sempre estar visível */}
       <View style={styles.logoutSection}>
         <TouchableOpacity
           style={styles.logoutButton}

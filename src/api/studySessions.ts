@@ -1,17 +1,15 @@
 import { apiClient } from './index';
 
-// DTOs
-// Valores devem corresponder ao enum do backend
 export enum StudySessionType {
-  ASSESSMENT = 'ASSESSMENT', // Estudar para Avaliação
-  HOMEWORK = 'HOMEWORK', // Fazer Tarefa de casa
-  LESSON = 'LESSON', // Assistir Aula
-  CONTENT = 'CONTENT', // Estudar Conteúdo
+  ASSESSMENT = 'ASSESSMENT',
+  HOMEWORK = 'HOMEWORK',
+  LESSON = 'LESSON',
+  CONTENT = 'CONTENT',
 }
 
 export enum StudySessionMode {
   POMODORO = 'POMODORO',
-  STOPWATCH = 'STOPWATCH', // Cronômetro
+  STOPWATCH = 'STOPWATCH',
 }
 
 export interface CreateStudySessionDTO {
@@ -22,8 +20,8 @@ export interface CreateStudySessionDTO {
   durationSeconds: number;
   pomodoroCycles?: number;
   pointsEarned: number;
-  startedAt: string; // ISO 8601 format
-  endedAt: string; // ISO 8601 format
+  startedAt: string;
+  endedAt: string;
 }
 
 export interface StudySessionResponseDTO {

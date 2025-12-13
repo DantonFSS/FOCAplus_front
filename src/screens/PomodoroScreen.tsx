@@ -16,17 +16,15 @@ export const PomodoroScreen: React.FC = () => {
     disciplineId?: string;
   };
 
-  const STUDY_TIME = 25 * 60; // 25 minutos em segundos
-  const BREAK_TIME = 5 * 60; // 5 minutos em segundos
+  const STUDY_TIME = 25 * 60;
+  const BREAK_TIME = 5 * 60;
 
   const [time, setTime] = useState(STUDY_TIME);
   const [isRunning, setIsRunning] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [pomodoroCount, setPomodoroCount] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const startedAtRef = useRef<Date | null>(null); // Momento em que o estudo começou
-  
-  // Salvar startedAt quando iniciar o primeiro pomodoro
+  const startedAtRef = useRef<Date | null>(null);
   useEffect(() => {
     if (isRunning && !startedAtRef.current) {
       startedAtRef.current = new Date();
@@ -38,14 +36,11 @@ export const PomodoroScreen: React.FC = () => {
       intervalRef.current = setInterval(() => {
         setTime((prevTime) => {
           if (prevTime <= 1) {
-            // Tempo acabou
             if (isBreak) {
-              // Fim do descanso, voltar para estudo
               setIsBreak(false);
               setPomodoroCount((prev) => prev + 1);
               return STUDY_TIME;
             } else {
-              // Fim do estudo, iniciar descanso
               setIsBreak(true);
               return BREAK_TIME;
             }
@@ -93,23 +88,11 @@ export const PomodoroScreen: React.FC = () => {
       return;
     }
 
-    console.log('🎯 Finalizando estudo - Pomodoro');
-    console.log('🍅 Pomodoros completados:', pomodoroCount);
-
-    // Calcular tempo total (apenas tempo de estudo, não conta descanso)
-    // Cada pomodoro = 25 minutos de estudo
-    const studyTime = pomodoroCount * 25 * 60; // tempo de estudo em segundos
-    const breakTime = pomodoroCount * 5 * 60; // tempo de descanso em segundos
-    const totalTime = studyTime + breakTime; // tempo total para exibição
+    const studyTime = pomodoroCount * 25 * 60;
+    const breakTime = pomodoroCount * 5 * 60;
+    const totalTime = studyTime + breakTime;
     
-    console.log('⏱️ Tempo de estudo:', studyTime, 'segundos');
-    console.log('📚 Tipo de estudo:', studyType);
-    
-    // Calcular XP baseado apenas no tempo de estudo (não conta descanso)
     const pointsEarned = calculateXP(studyTime, studyType || 'Estudar Conteúdo');
-    console.log('💰 Pontos calculados:', pointsEarned);
-    
-    // Mapear tipo de estudo para enum (valores do backend)
     const mapStudyTypeToEnum = (type: string): StudySessionType => {
       if (type === 'Estudar para Avaliação') return StudySessionType.ASSESSMENT;
       if (type === 'Fazer Tarefa de casa') return StudySessionType.HOMEWORK;
@@ -120,82 +103,43 @@ export const PomodoroScreen: React.FC = () => {
     let totalPoints = pointsEarned;
     
     try {
-      // Buscar dados da disciplina para obter userCourseId
       const disciplineData = await disciplineInstancesApi.getById(disciplineId);
       
       const endedAt = new Date();
-      const startedAt = startedAtRef.current || new Date(); // Se não tiver startedAt, usa agora
+      const startedAt = startedAtRef.current || new Date();
       
-      console.log('💾 Criando sessão de estudo no backend...');
-      // Criar sessão de estudo
       const createdSession = await studySessionsApi.create({
         userCourseId: disciplineData.userCourseId,
         disciplineInstanceId: disciplineId,
         sessionType: mapStudyTypeToEnum(studyType || 'Estudar Conteúdo'),
         mode: StudySessionMode.POMODORO,
-        durationSeconds: studyTime, // Apenas tempo de estudo, não conta descanso
+        durationSeconds: studyTime,
         pomodoroCycles: pomodoroCount,
         pointsEarned,
         startedAt: startedAt.toISOString(),
         endedAt: endedAt.toISOString(),
       });
-      console.log('✅ Sessão de estudo criada com sucesso!', createdSession.id);
-      console.log('💰 Pontos da sessão:', createdSession.pointsEarned);
       
-      // Verificar se já existe um score record para esta sessão
-      console.log('📊 Verificando scores existentes...');
       let allScores = await scoresApi.getByDiscipline(disciplineId);
       const existingScoreForSession = allScores.find(
         score => score.sourceId === createdSession.id && score.sourceType === 'STUDY_SESSION'
       );
       
-      if (!existingScoreForSession || existingScoreForSession.points === 0) {
-        console.log('⚠️ Score record não encontrado ou com pontos 0. O backend precisa criar automaticamente.');
-        console.log('💡 O backend deve criar um ScoreRecord no StudySessionService.createSession()');
-        console.log('💡 com sourceType=STUDY_SESSION, sourceId=sessão.id, points=pointsEarned');
-      } else {
-        console.log('✅ Score record encontrado:', existingScoreForSession);
-      }
-      
-      // Buscar total de pontos da disciplina (soma todos os scores)
       totalPoints = allScores.reduce((sum, record) => sum + record.points, 0);
-      console.log('📊 Total de pontos na disciplina:', totalPoints);
-      console.log('📋 Total de scores encontrados:', allScores.length);
       
-      // Se o score record não existe ou tem pontos 0, usar os pontos calculados para exibição
       if (!existingScoreForSession || existingScoreForSession.points === 0) {
-        console.log('⚠️ Usando pontos calculados para exibição:', pointsEarned);
-        // Somar os pontos calculados ao total existente (exceto o score com 0 pontos)
         const scoresWithPoints = allScores.filter(s => s.points > 0);
         const existingTotal = scoresWithPoints.reduce((sum, record) => sum + record.points, 0);
         totalPoints = existingTotal + pointsEarned;
-        console.log('📊 Total ajustado (incluindo pontos calculados):', totalPoints);
       }
     } catch (error: any) {
-      console.error('❌ Erro ao salvar sessão/pontos:', error);
-      console.error('📋 Detalhes do erro:', error?.response?.data || error?.message);
-      // Continua mesmo se houver erro ao salvar, mas mostra o total atual
       try {
         const allScores = await scoresApi.getByDiscipline(disciplineId);
         totalPoints = allScores.reduce((sum, record) => sum + record.points, 0);
       } catch (e) {
-        console.error('❌ Erro ao buscar pontos:', e);
       }
     }
     
-    console.log('🚀 Navegando para StudyFinished...');
-    console.log('📦 Parâmetros:', {
-      disciplineName,
-      disciplineId,
-      studyType,
-      timeSpent: totalTime,
-      pointsEarned,
-      totalPoints,
-      method: 'pomodoro',
-      pomodoroCount,
-    });
-    
-    // Navegar para a tela de estudo finalizado
     try {
       (navigation as any).navigate('StudyFinished', {
         disciplineName,
@@ -207,23 +151,19 @@ export const PomodoroScreen: React.FC = () => {
         method: 'pomodoro',
         pomodoroCount,
       });
-      console.log('✅ Navegação realizada!');
     } catch (navError) {
-      console.error('❌ Erro na navegação:', navError);
       Alert.alert('Erro', 'Não foi possível navegar para a tela de conclusão.');
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Voltar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Icon and Title */}
       <View style={styles.titleSection}>
         <Image 
           source={require('../../assets/book_alt.png')} 
@@ -233,13 +173,11 @@ export const PomodoroScreen: React.FC = () => {
         <Text style={styles.studyType}>{studyType || 'Estudar'}</Text>
       </View>
 
-      {/* Pomodoro Count */}
       <View style={styles.countContainer}>
         <Text style={styles.countLabel}>Pomodoros completados:</Text>
         <Text style={styles.countNumber}>{pomodoroCount}</Text>
       </View>
 
-      {/* Timer Circle */}
       <View style={styles.timerContainer}>
         <View style={[
           styles.timerCircle,
@@ -256,7 +194,6 @@ export const PomodoroScreen: React.FC = () => {
         />
       </View>
 
-      {/* Motivational Message */}
       <View style={styles.messageContainer}>
         <Text style={styles.messageText}>
           {isBreak 
@@ -266,7 +203,6 @@ export const PomodoroScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={styles.startPauseButton}

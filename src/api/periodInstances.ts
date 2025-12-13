@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs para Period Instance
 export interface PeriodInstanceResponse {
   id: string;
   userCourseId: string;

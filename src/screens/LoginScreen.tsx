@@ -36,33 +36,19 @@ export const LoginScreen: React.FC<{ onNavigateToRegister?: () => void; onLoginS
     setApiError(null);
 
     try {
-      console.log('📝 Submitting login form:', { email: data.email });
-      
       const loginData: LoginRequest = {
         email: data.email.trim(),
         password: data.password,
       };
       
-      console.log('📤 Sending login request:', loginData);
       const response = await authApi.login(loginData);
-      console.log('✅ Login successful:', response);
       
-      // Salvar tokens e dados do usuário
       await login(response);
       
-      // Redirecionar para Home
       if (onLoginSuccess) {
         onLoginSuccess();
       }
     } catch (error: any) {
-      console.error('❌ Login error details:', {
-        message: error.message,
-        response: error.response,
-        request: error.request,
-        config: error.config,
-      });
-      
-      // Tratamento de erros mais específico
       if (error.code === 'ECONNABORTED') {
         setApiError('Tempo de requisição esgotado. Verifique sua conexão.');
       } else if (error.code === 'ERR_NETWORK' || !error.response) {

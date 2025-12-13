@@ -17,7 +17,6 @@ export const TasksScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -34,7 +33,6 @@ export const TasksScreen: React.FC = () => {
       const loadedTasks = await tasksApi.getByDiscipline(disciplineId);
       setTasks(loadedTasks);
     } catch (error) {
-      console.error('❌ Erro ao carregar tarefas:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -96,7 +94,6 @@ export const TasksScreen: React.FC = () => {
       setTasks([...tasks, newTask]);
       handleCloseModal();
     } catch (error) {
-      console.error('❌ Erro ao criar tarefa:', error);
     } finally {
       setIsCreating(false);
     }
@@ -117,7 +114,6 @@ export const TasksScreen: React.FC = () => {
       setShowDeleteModal(false);
       setTaskToDelete(null);
     } catch (error) {
-      console.error('❌ Erro ao excluir tarefa:', error);
     } finally {
       setIsDeleting(false);
     }
@@ -136,7 +132,6 @@ export const TasksScreen: React.FC = () => {
         t.id === taskId ? response.task : t
       ));
     } catch (error) {
-      console.error('❌ Erro ao atualizar tarefa:', error);
     } finally {
       setUpdatingTaskId(null);
     }
@@ -180,8 +175,6 @@ export const TasksScreen: React.FC = () => {
           key={task.id}
           style={styles.taskCard}
           onPress={() => {
-            // TODO: Navegar para detalhes da tarefa
-            console.log('Task:', task);
           }}
         >
           <View style={styles.taskHeader}>
@@ -275,7 +268,6 @@ export const TasksScreen: React.FC = () => {
         )}
       </ScrollView>
 
-      {/* Modal de Criar Tarefa */}
       <Modal
         visible={showCreateModal}
         transparent
@@ -363,7 +355,6 @@ export const TasksScreen: React.FC = () => {
         </BlurView>
       </Modal>
 
-      {/* Modal de Confirmar Exclusão */}
       <Modal
         visible={showDeleteModal}
         transparent

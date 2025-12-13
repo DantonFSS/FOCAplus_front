@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs para Discipline Instance
 export interface DisciplineInstanceResponse {
   id: string;
   userCourseId: string;

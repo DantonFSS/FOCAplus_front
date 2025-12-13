@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs
 export interface CreateDisciplineTeacherRequest {
   disciplineInstanceId: string;
   teacherName: string;

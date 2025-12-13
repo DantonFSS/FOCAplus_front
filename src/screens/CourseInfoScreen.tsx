@@ -32,10 +32,8 @@ interface CourseInfoFormData {
   endDate: string;
 }
 
-// Frontend sempre trabalha com instances
 type PeriodData = PeriodInstanceResponse;
 
-// Converter data ISO para formato brasileiro
 const convertISOToDate = (isoDate: string): string => {
   if (!isoDate) return "";
   const date = new Date(isoDate);
@@ -45,13 +43,11 @@ const convertISOToDate = (isoDate: string): string => {
   return `${day}/${month}/${year}`;
 };
 
-// Converter data brasileira (dd/mm/aaaa) para ISO com timezone
 const convertDateToISO = (dateStr: string): string | undefined => {
   if (!dateStr || dateStr === "dd/mm/aaaa") return undefined;
   const [day, month, year] = dateStr.split("/");
   if (!day || !month || !year) return undefined;
   const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-  // Retorna ISO com timezone (ZonedDateTime no backend)
   return date.toISOString();
 };
 
@@ -75,9 +71,6 @@ export const CourseInfoScreen: React.FC = () => {
     if (!currentUserCourse?.userCourseId) return;
     setIsDeleting(true);
     try {
-      // Frontend sempre usa userCourseApi (backend detecta role internamente)
-      // OWNER: Backend arquiva template (se >1 user) ou deleta (se único)
-      // MEMBER: Backend remove apenas o vínculo
       await userCoursesApi.delete(currentUserCourse.userCourseId);
       
       setShowDeleteConfirm(false);
@@ -89,7 +82,6 @@ export const CourseInfoScreen: React.FC = () => {
     }
   };
 
-  // Buscar UserCourse do banco
   useEffect(() => {
     const fetchUserCourse = async () => {
       if (!userCourseId) return;
@@ -99,7 +91,6 @@ export const CourseInfoScreen: React.FC = () => {
         const userCourse = await userCoursesApi.getById(userCourseId);
         setCurrentUserCourse(userCourse);
       } catch (error: any) {
-        console.error("❌ Erro ao buscar curso:", error);
         Alert.alert(
           "Erro",
           "Não foi possível carregar as informações do curso. Tente novamente."
@@ -112,7 +103,6 @@ export const CourseInfoScreen: React.FC = () => {
     fetchUserCourse();
   }, [userCourseId]);
 
-  // Função para carregar períodos (sempre usa instances, tanto OWNER quanto MEMBER)
   const loadPeriods = React.useCallback(async () => {
     if (!currentUserCourse) {
       setPeriods([]);
@@ -121,23 +111,19 @@ export const CourseInfoScreen: React.FC = () => {
 
     setIsLoadingPeriods(true);
     try {
-      // Frontend sempre usa instances (backend filtra archived automaticamente)
       const instances = await periodInstancesApi.getByUserCourse(currentUserCourse.userCourseId);
       setPeriods(instances);
     } catch (error) {
-      console.error("❌ Erro ao carregar períodos:", error);
       setPeriods([]);
     } finally {
       setIsLoadingPeriods(false);
     }
   }, [currentUserCourse]);
 
-  // Carregar períodos quando o curso mudar
   useEffect(() => {
     loadPeriods();
   }, [loadPeriods]);
 
-  // Recarregar períodos quando a tela receber foco
   useFocusEffect(
     React.useCallback(() => {
       loadPeriods();
@@ -163,7 +149,6 @@ export const CourseInfoScreen: React.FC = () => {
     },
   });
 
-  // Atualizar valores do formulário quando o curso for carregado
   useEffect(() => {
     if (currentUserCourse) {
       reset({
@@ -201,18 +186,14 @@ export const CourseInfoScreen: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Converter datas para ISO
       const startDateISO = convertDateToISO(data.startDate);
       const endDateISO = convertDateToISO(data.endDate);
 
-      // Preparar dados para atualização
-      // O backend vai decidir se altera o template baseado no role
       const updateData = {
         address: data.address || undefined,
         online: data.online,
         startDate: startDateISO,
         endDate: endDateISO,
-        // Se houver contato, pode ser telefone ou email
         phones:
           data.contact && /^\d/.test(data.contact) ? [data.contact] : undefined,
         emails:
@@ -230,7 +211,6 @@ export const CourseInfoScreen: React.FC = () => {
 
       Alert.alert("Sucesso", "Informações do curso atualizadas com sucesso!");
     } catch (error: any) {
-      console.error("❌ Erro ao salvar:", error);
       Alert.alert(
         "Erro",
         error?.response?.data?.message ||
@@ -281,7 +261,6 @@ export const CourseInfoScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Course Overview */}
       <View style={styles.courseOverview}>
         <View style={styles.courseIcon}>
           <Text style={styles.courseIconText}>{"</>"}</Text>
@@ -297,7 +276,6 @@ export const CourseInfoScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Information Card */}
       <View style={styles.infoCard}>
         {isEditing ? (
           <>
@@ -520,7 +498,6 @@ export const CourseInfoScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Periods Section */}
       <View style={styles.periodsSection}>
         <Text style={styles.periodsTitle}>Períodos</Text>
         <View style={styles.periodsGrid}>
@@ -537,7 +514,6 @@ export const CourseInfoScreen: React.FC = () => {
                   key={period.id}
                   style={styles.periodButton}
                   onPress={() => {
-                    // Navegar para informações do período (sempre instance)
                     (navigation as any).navigate("PeriodInfo", {
                       periodId: period.id,
                       userCourseId: currentUserCourse.userCourseId,
@@ -558,7 +534,6 @@ export const CourseInfoScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Finalize Button */}
       <Button
         title="Finalizar"
         onPress={() => navigation.goBack()}

@@ -38,13 +38,11 @@ export const StudyFinishedScreen: React.FC = () => {
   };
 
   const handleReturn = () => {
-    // Navegar de volta para a disciplina (a pontuação será recarregada automaticamente pelo useFocusEffect)
     navigation.navigate('DisciplineInfo' as never, { disciplineId } as never);
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Estudo finalizado</Text>
         <TouchableOpacity
@@ -59,7 +57,6 @@ export const StudyFinishedScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Icon and Title */}
       <View style={styles.titleSection}>
         <Image 
           source={require('../../assets/book_alt.png')} 
@@ -72,7 +69,6 @@ export const StudyFinishedScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Summary Card */}
       <View style={styles.summaryCard}>
         <Text style={styles.summaryText}>
           Tempo total: {formatTime(timeSpent || 0)} de foco
@@ -85,7 +81,6 @@ export const StudyFinishedScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Badges Row */}
       <View style={styles.badgesContainer}>
         <View style={styles.badge}>
           <View style={[styles.badgeShape, styles.badgeBlue]} />
@@ -107,11 +102,9 @@ export const StudyFinishedScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Self-Evaluation Section */}
       <View style={styles.evaluationSection}>
         <Text style={styles.evaluationTitle}>Autoavaliação</Text>
         
-        {/* Focus Question */}
         <View style={styles.questionContainer}>
           <Text style={styles.questionText}>
             Quanto você se manteve focado durante o estudo?
@@ -140,7 +133,6 @@ export const StudyFinishedScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Energy Question */}
         <View style={styles.questionContainer}>
           <Text style={styles.questionText}>
             Como está seu nível de energia após o estudo?
@@ -170,7 +162,6 @@ export const StudyFinishedScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Return Button */}
       <TouchableOpacity
         style={styles.returnButton}
         onPress={handleReturn}

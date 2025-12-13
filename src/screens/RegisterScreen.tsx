@@ -40,8 +40,6 @@ export const RegisterScreen: React.FC<{ onNavigateToLogin?: () => void }> = ({ o
     setApiError(null);
 
     try {
-      console.log('📝 Submitting register form:', { email: data.email, name: data.name });
-      
       const registerData: RegisterRequest = {
         name: data.name.trim(),
         email: data.email.trim(),
@@ -49,22 +47,12 @@ export const RegisterScreen: React.FC<{ onNavigateToLogin?: () => void }> = ({ o
         username: data.username.trim() || data.email.trim().split('@')[0],
       };
       
-      console.log('📤 Sending register request:', registerData);
       const response = await authApi.register(registerData);
-      console.log('✅ Register successful:', response);
       
-      // Redirecionar para login após cadastro bem-sucedido
       if (onNavigateToLogin) {
         onNavigateToLogin();
       }
     } catch (error: any) {
-      console.error('❌ Register error details:', {
-        message: error.message,
-        response: error.response,
-        request: error.request,
-        config: error.config,
-      });
-      
       if (error.code === 'ECONNABORTED') {
         setApiError('Tempo de requisição esgotado. Verifique sua conexão.');
       } else if (error.code === 'ERR_NETWORK' || !error.response) {

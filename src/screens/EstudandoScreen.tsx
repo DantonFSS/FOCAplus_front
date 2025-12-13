@@ -68,14 +68,12 @@ export const EstudandoScreen: React.FC = () => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Voltar</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Icon and Title */}
       <View style={styles.titleSection}>
         <View style={styles.iconContainer}>
           <Image 
@@ -88,7 +86,6 @@ export const EstudandoScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Study Options Grid */}
       <View style={styles.optionsGrid}>
         {studyOptions.map((option) => (
           <TouchableOpacity
@@ -119,7 +116,6 @@ export const EstudandoScreen: React.FC = () => {
         ))}
       </View>
 
-      {/* Study Method Section */}
       <View style={styles.methodSection}>
         <Text style={styles.methodTitle}>Como você quer estudar?</Text>
         <View style={styles.methodButtons}>
@@ -189,7 +185,6 @@ export const EstudandoScreen: React.FC = () => {
           </View>
         </View>
         
-        {/* Method Descriptions */}
         {showMethodDescription === 'pomodoro' && (
           <View style={styles.descriptionBubble}>
             <Text style={styles.descriptionTitle}>Pomodoro</Text>
@@ -208,7 +203,6 @@ export const EstudandoScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Start Button */}
       <TouchableOpacity
         style={[
           styles.startButton,

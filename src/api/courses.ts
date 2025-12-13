@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// Enums do backend
 export enum CourseLevel {
   UNDERGRADUATE = 'UNDERGRADUATE',
   HIGH_SCHOOL = 'HIGH_SCHOOL',
@@ -26,7 +25,6 @@ export enum CourseStatus {
   PAUSED = 'PAUSED',
 }
 
-// Mapeamento do frontend para backend
 export const mapLevelToBackend = (level: string): CourseLevel => {
   const mapping: { [key: string]: CourseLevel } = {
     'graduacao': CourseLevel.UNDERGRADUATE,
@@ -47,15 +45,14 @@ export const mapDivisionTypeToBackend = (type: string): DivisionType => {
   return mapping[type] || DivisionType.PERIOD;
 };
 
-// DTOs
 export interface CreateCourseRequest {
   name: string;
   level: CourseLevel;
   divisionType: DivisionType;
   divisionsCount: number;
   institutionName?: string;
-  startDate?: string; // ISO date string
-  endDate?: string; // ISO date string
+  startDate?: string;
+  endDate?: string;
   address?: string;
   online?: boolean;
   status?: CourseStatus;

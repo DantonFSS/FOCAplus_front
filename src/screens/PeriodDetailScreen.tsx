@@ -31,7 +31,6 @@ export const PeriodDetailScreen: React.FC = () => {
     },
   });
 
-  // Função para recarregar disciplinas
   const loadDisciplines = async () => {
     if (!periodTemplateId) return;
 
@@ -40,33 +39,26 @@ export const PeriodDetailScreen: React.FC = () => {
       const loadedDisciplines = await disciplinesApi.getByPeriod(periodTemplateId);
       setDisciplines(loadedDisciplines);
     } catch (error) {
-      console.error('❌ Erro ao carregar disciplinas:', error);
     } finally {
       setIsLoadingDisciplines(false);
     }
   };
 
-  // Carregar disciplinas do backend
   useEffect(() => {
     loadDisciplines();
   }, [periodTemplateId]);
 
-  // Listener para receber disciplinas atualizadas da tela AddDisciplinesScreen
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       const updatedDisciplines = (route.params as any)?.updatedDisciplines;
       if (updatedDisciplines) {
-        // Converter formato antigo para novo se necessário
         if (updatedDisciplines.length > 0 && typeof updatedDisciplines[0].id === 'number') {
-          // Formato antigo, recarregar do backend
           loadDisciplines();
         } else {
           setDisciplines(updatedDisciplines);
         }
-        // Limpar parâmetros após usar
         (route.params as any).updatedDisciplines = undefined;
       } else {
-        // Recarregar sempre que a tela receber foco
         loadDisciplines();
       }
     });
@@ -116,7 +108,6 @@ export const PeriodDetailScreen: React.FC = () => {
               Alert.alert('Sucesso', 'Disciplina excluída com sucesso!');
               await loadDisciplines();
             } catch (error) {
-              console.error('❌ Erro ao excluir disciplina:', error);
               Alert.alert('Erro', 'Não foi possível excluir a disciplina. Tente novamente.');
             } finally {
               setIsDeleting(false);
@@ -138,7 +129,6 @@ export const PeriodDetailScreen: React.FC = () => {
       setEditingDiscipline(null);
       reset();
     } catch (error) {
-      console.error('❌ Erro ao atualizar disciplina:', error);
       Alert.alert('Erro', 'Não foi possível atualizar a disciplina. Tente novamente.');
       setIsEditing(true);
     }
@@ -182,7 +172,6 @@ export const PeriodDetailScreen: React.FC = () => {
               key={discipline.id}
               style={styles.disciplineCard}
               onPress={() => {
-                // Navegar para informações da disciplina
                 (navigation as any).navigate('DisciplineInfo', {
                   disciplineId: discipline.id,
                   disciplineName: discipline.name,
@@ -254,7 +243,6 @@ export const PeriodDetailScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Modal de edição */}
       <Modal
         visible={isEditing}
         transparent={true}

@@ -39,29 +39,23 @@ export const DisciplineInfoScreen: React.FC = () => {
   const [editedName, setEditedName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
   
-  // Modal de adicionar horário
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
   const [newScheduleWeekday, setNewScheduleWeekday] = useState<number>(1);
   const [newScheduleStartTime, setNewScheduleStartTime] = useState('');
   const [newScheduleEndTime, setNewScheduleEndTime] = useState('');
   const [isAddingSchedule, setIsAddingSchedule] = useState(false);
   
-  // Modal de confirmar deleção de horário
   const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<string | null>(null);
   const [isDeletingSchedule, setIsDeletingSchedule] = useState(false);
   
-  // Modal de confirmar deleção de docente
   const [showDeleteTeacherModal, setShowDeleteTeacherModal] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
   const [isDeletingTeacher, setIsDeletingTeacher] = useState(false);
 
-  // Mapear weekday para nome do dia
   const weekdayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
-  // Formatar horário automaticamente (adiciona os dois pontos)
   const formatTimeInput = (text: string): string => {
-    // Remove tudo que não é número
     const numbers = text.replace(/\D/g, '');
     
     if (numbers.length === 0) return '';
@@ -72,39 +66,30 @@ export const DisciplineInfoScreen: React.FC = () => {
     return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
   };
 
-  // Formatar horário para exibição
   const formatSchedule = (schedule: DisciplineScheduleResponse): string => {
     const day = weekdayNames[schedule.weekday] || `Dia ${schedule.weekday}`;
-    const startTime = schedule.startTime.substring(0, 5); // "HH:mm"
-    const endTime = schedule.endTime.substring(0, 5); // "HH:mm"
+    const startTime = schedule.startTime.substring(0, 5);
+    const endTime = schedule.endTime.substring(0, 5);
     return `${day} - ${startTime} às ${endTime}`;
   };
 
-  // Buscar dados da disciplina do backend
-  // IMPORTANT: disciplineId is ALWAYS an instance ID (never template ID)
-  // Backend auto-creates instances for OWNER when they create templates
   useEffect(() => {
     const loadDiscipline = async () => {
       if (!disciplineId) return;
 
       setIsLoading(true);
       try {
-        // Always load discipline instance (OWNER and MEMBER both use instances)
         const disciplineData = await disciplineInstancesApi.getById(disciplineId);
         setDiscipline(disciplineData);
         if (disciplineData.assessmentsCount) {
           setEvaluationCount(disciplineData.assessmentsCount);
         }
-        console.log('✅ Discipline instance carregada:', disciplineData.name);
         
-        // Carregar horários, docentes, avaliações e pontuação da disciplina
-        // All these are linked to discipline INSTANCE
         await loadScore(disciplineData.id);
         await loadSchedules(disciplineData.id);
         await loadTeachers(disciplineData.id);
         await loadAssessments(disciplineData.id);
       } catch (error) {
-        console.error('❌ Erro ao carregar disciplina instance:', error);
         Alert.alert('Erro', 'Não foi possível carregar a disciplina.');
       } finally {
         setIsLoading(false);
@@ -114,61 +99,47 @@ export const DisciplineInfoScreen: React.FC = () => {
     loadDiscipline();
   }, [disciplineId]);
 
-  // Recarregar pontuação quando a tela receber foco (quando voltar de outras telas)
   useFocusEffect(
     React.useCallback(() => {
       if (disciplineId) {
-        console.log('🔄 Recarregando pontuação (useFocusEffect)...');
         loadScore(disciplineId);
       }
     }, [disciplineId])
   );
 
-  // Carregar pontuação do backend
   const loadScore = async (instanceId: string) => {
     setIsLoadingScore(true);
     try {
-      console.log('📊 Carregando pontuação para disciplina:', instanceId);
       const scores = await scoresApi.getByDiscipline(instanceId);
-      console.log('📋 Scores recebidos:', scores);
       const total = scores.reduce((sum, record) => sum + record.points, 0);
-      console.log('💰 Total calculado:', total);
       setTotalScore(total);
-      console.log('✅ Pontuação atualizada no estado:', total);
     } catch (error) {
-      console.error('❌ Erro ao carregar pontuação:', error);
     } finally {
       setIsLoadingScore(false);
     }
   };
 
-  // Carregar horários do backend
   const loadSchedules = async (instanceId: string) => {
     setIsLoadingSchedules(true);
     try {
       const loadedSchedules = await disciplineSchedulesApi.getByDiscipline(instanceId);
       setSchedules(loadedSchedules);
     } catch (error) {
-      console.error('❌ Erro ao carregar horários:', error);
     } finally {
       setIsLoadingSchedules(false);
     }
   };
 
-  // Carregar avaliações do backend
   const loadAssessments = async (instanceId: string) => {
     setIsLoadingAssessments(true);
     try {
       const loaded = await assessmentsApi.getByDiscipline(instanceId);
       setAssessments(loaded);
     } catch (error) {
-      console.error('❌ Erro ao carregar avaliações:', error);
     } finally {
       setIsLoadingAssessments(false);
     }
   };
-
-  // Remover horário
   const handleRemoveSchedule = (scheduleId: string) => {
     setScheduleToDelete(scheduleId);
     setShowDeleteScheduleModal(true);
@@ -184,27 +155,23 @@ export const DisciplineInfoScreen: React.FC = () => {
       setShowDeleteScheduleModal(false);
       setScheduleToDelete(null);
     } catch (error) {
-      console.error('❌ Erro ao remover horário:', error);
       Alert.alert('Erro', 'Não foi possível remover o horário.');
     } finally {
       setIsDeletingSchedule(false);
     }
   };
 
-  // Adicionar horário (simplificado - apenas segunda-feira 14h-16h como exemplo)
   const handleAddSchedule = async () => {
     if (!discipline?.id) {
       Alert.alert('Erro', 'Disciplina não encontrada.');
       return;
     }
 
-    // Verificar se é uma instância real (tem userCourseId)
     if (!discipline.userCourseId) {
       Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
       return;
     }
 
-    // Abrir modal
     setShowAddScheduleModal(true);
   };
 
@@ -221,32 +188,26 @@ export const DisciplineInfoScreen: React.FC = () => {
       });
       setSchedules([...schedules, newSchedule]);
       setShowAddScheduleModal(false);
-      // Resetar valores
       setNewScheduleWeekday(1);
       setNewScheduleStartTime('');
       setNewScheduleEndTime('');
     } catch (error) {
-      console.error('❌ Erro ao adicionar horário:', error);
       Alert.alert('Erro', 'Não foi possível adicionar o horário.');
     } finally {
       setIsAddingSchedule(false);
     }
   };
 
-  // Carregar docentes do backend
   const loadTeachers = async (instanceId: string) => {
     setIsLoadingTeachers(true);
     try {
       const loadedTeachers = await disciplineTeachersApi.getByDiscipline(instanceId);
       setTeachers(loadedTeachers);
     } catch (error) {
-      console.error('❌ Erro ao carregar docentes:', error);
     } finally {
       setIsLoadingTeachers(false);
     }
   };
-
-  // Adicionar docente
   const handleAddTeacher = async () => {
     if (!teacherInput.trim()) {
       return;
@@ -257,7 +218,6 @@ export const DisciplineInfoScreen: React.FC = () => {
       return;
     }
 
-    // Verificar se é uma instância real (tem userCourseId)
     if (!discipline.userCourseId) {
       Alert.alert('Aviso', 'Esta disciplina ainda não foi instanciada. Crie uma instância primeiro.');
       return;
@@ -271,12 +231,9 @@ export const DisciplineInfoScreen: React.FC = () => {
       setTeachers([...teachers, newTeacher]);
       setTeacherInput('');
     } catch (error) {
-      console.error('❌ Erro ao adicionar docente:', error);
       Alert.alert('Erro', 'Não foi possível adicionar o docente.');
     }
   };
-
-  // Remover docente
   const handleRemoveTeacher = (teacherId: string) => {
     setTeacherToDelete(teacherId);
     setShowDeleteTeacherModal(true);
@@ -292,14 +249,12 @@ export const DisciplineInfoScreen: React.FC = () => {
       setShowDeleteTeacherModal(false);
       setTeacherToDelete(null);
     } catch (error) {
-      console.error('❌ Erro ao remover docente:', error);
       Alert.alert('Erro', 'Não foi possível remover o docente.');
     } finally {
       setIsDeletingTeacher(false);
     }
   };
 
-  // Criar avaliação simples (título + descrição opcional)
   const handleCreateAssessment = async () => {
     if (!discipline?.id) {
       Alert.alert('Erro', 'Disciplina não encontrada.');
@@ -318,12 +273,10 @@ export const DisciplineInfoScreen: React.FC = () => {
       });
       setAssessments([...assessments, newAssessment]);
     } catch (error) {
-      console.error('❌ Erro ao criar avaliação:', error);
       Alert.alert('Erro', 'Não foi possível criar a avaliação.');
     }
   };
 
-  // Iniciar edição do nome
   const handleStartEditName = () => {
     if (discipline?.name) {
       setEditedName(discipline.name);
@@ -331,13 +284,10 @@ export const DisciplineInfoScreen: React.FC = () => {
     }
   };
 
-  // Cancelar edição do nome
   const handleCancelEditName = () => {
     setIsEditingName(false);
     setEditedName('');
   };
-
-  // Salvar novo nome
   const handleSaveName = async () => {
     if (!editedName.trim()) {
       Alert.alert('Erro', 'O nome da disciplina não pode estar vazio.');
@@ -355,13 +305,11 @@ export const DisciplineInfoScreen: React.FC = () => {
         name: editedName.trim(),
       });
       
-      // Atualizar estado local
       setDiscipline(prev => prev ? { ...prev, name: updated.name } : null);
       setIsEditingName(false);
       setEditedName('');
       Alert.alert('Sucesso', 'Nome da disciplina atualizado!');
     } catch (error) {
-      console.error('❌ Erro ao atualizar nome:', error);
       Alert.alert('Erro', 'Não foi possível atualizar o nome da disciplina.');
     } finally {
       setIsSavingName(false);
@@ -388,7 +336,6 @@ export const DisciplineInfoScreen: React.FC = () => {
         <Text style={styles.headerTitle}>{discipline?.name || 'Disciplina'}</Text>
       </View>
 
-      {/* Discipline Title */}
       <View style={styles.disciplineHeader}>
         <Text style={styles.disciplineIcon}></Text>
         {isEditingName ? (
@@ -435,14 +382,11 @@ export const DisciplineInfoScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Score Display */}
       <View style={styles.scoreContainer}>
         <Text style={styles.scoreText}>Pontuação total: {totalScore}XP</Text>
       </View>
 
-      {/* Details Card */}
       <View style={styles.detailsCard}>
-        {/* Horários e dias */}
         <View style={styles.detailSection}>
           <View style={styles.detailHeader}>
             <Image source={require('../../assets/empty_calendar_icon.png')} style={styles.detailIcon} />
@@ -473,7 +417,6 @@ export const DisciplineInfoScreen: React.FC = () => {
           />
         </View>
 
-        {/* Docente(s) */}
         <View style={styles.detailSection}>
           <View style={styles.detailHeader}>
             <Image source={require('../../assets/docente_user_icon.png')} style={styles.detailIcon} />
@@ -515,7 +458,6 @@ export const DisciplineInfoScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Avaliações */}
         <View style={styles.detailSection}>
           <View style={styles.detailHeader}>
             <Image source={require('../../assets/sheet_icon.png')} style={styles.detailIcon} />
@@ -556,7 +498,6 @@ export const DisciplineInfoScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <Button
           title="Tarefas de casa"
@@ -572,7 +513,6 @@ export const DisciplineInfoScreen: React.FC = () => {
         />
       </View>
 
-      {/* Start Study Button */}
       <TouchableOpacity
         style={styles.startStudyButton}
         onPress={() => {
@@ -587,7 +527,6 @@ export const DisciplineInfoScreen: React.FC = () => {
         <Text style={styles.startStudyText}>Iniciar estudo</Text>
       </TouchableOpacity>
 
-      {/* Modal Adicionar Horário */}
       <Modal
         visible={showAddScheduleModal}
         transparent
@@ -661,7 +600,6 @@ export const DisciplineInfoScreen: React.FC = () => {
         </BlurView>
       </Modal>
 
-      {/* Modal Confirmar Deleção de Horário */}
       <Modal
         visible={showDeleteScheduleModal}
         transparent
@@ -706,7 +644,6 @@ export const DisciplineInfoScreen: React.FC = () => {
         </BlurView>
       </Modal>
 
-      {/* Modal Confirmar Deleção de Docente */}
       <Modal
         visible={showDeleteTeacherModal}
         transparent

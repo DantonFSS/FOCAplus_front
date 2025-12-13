@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs
 export interface CreatePeriodTemplateRequest {
   courseTemplateId: string;
 }
@@ -18,11 +17,10 @@ export interface PeriodTemplateResponse {
   position: number;
   plannedStart: string | null; 
   plannedEnd: string | null;
-  archived?: boolean; // ✨ Adicionado
+  archived?: boolean;
 }
 
 export const periodsApi = {
-  // Period Templates
   createTemplate: async (data: CreatePeriodTemplateRequest): Promise<PeriodTemplateResponse> => {
     const response = await apiClient.post<PeriodTemplateResponse>('/period-templates', data);
     return response.data;

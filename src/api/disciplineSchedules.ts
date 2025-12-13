@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// DTOs
 export interface CreateDisciplineScheduleRequest {
   disciplineInstanceId: string;
   weekday: number; // 0=domingo, 1=segunda, ..., 6=sábado

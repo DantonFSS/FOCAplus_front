@@ -21,12 +21,10 @@ export const InputText: React.FC<InputTextProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Função auxiliar para verificar se tem valor
   const checkHasValue = (val: string | undefined | null): boolean => {
     return !!(val && typeof val === 'string' && val.trim().length > 0);
   };
 
-  // Animações para o floating label - inicializar baseado no valor inicial
   const initialHasValue = checkHasValue(value);
   const animatedLabelPosition = useRef(new Animated.Value(initialHasValue ? 1 : 0)).current;
   const animatedLabelSize = useRef(new Animated.Value(initialHasValue ? 1 : 0)).current;
@@ -45,25 +43,15 @@ export const InputText: React.FC<InputTextProps> = ({
   const eyeIconColor = isLight ? theme.colors.grayDark : theme.colors.white;
   const errorTextColor = isLight ? theme.colors.redBad : theme.colors.white;
 
-  // Sempre usar label flutuante - não mostrar placeholder
-  // Se não tiver label, usar placeholder como label (mas não mostrar como placeholder)
   const displayLabel = label || textInputProps.placeholder || '';
-  // Verificar se tem valor (não vazio)
   const hasValue = checkHasValue(value);
-  // Nunca mostrar placeholder - sempre usar floating label
   const actualPlaceholder = undefined;
   
-  // Se não tiver label nem placeholder, não mostrar nada
   const shouldShowLabel = !!displayLabel;
 
-  // Animar label quando focado ou quando há valor
   useEffect(() => {
-    // Label sobe apenas se estiver focado OU se tiver valor (não vazio)
-    // Se não estiver focado E não tiver valor, volta para baixo
     const currentHasValue = checkHasValue(value);
     const shouldFloat = isFocused || currentHasValue;
-    
-    // Forçar animação mesmo se o valor não mudou, mas o foco mudou
     Animated.parallel([
       Animated.timing(animatedLabelPosition, {
         toValue: shouldFloat ? 1 : 0,
@@ -78,10 +66,8 @@ export const InputText: React.FC<InputTextProps> = ({
     ]).start();
   }, [isFocused, value]);
 
-  // Posição e tamanho do label animado
   const labelTop = animatedLabelPosition.interpolate({
     inputRange: [0, 1],
-    // Mantém o label dentro da área do campo para não ser coberto por campos acima
     outputRange: [16, 4],
   });
 
@@ -181,8 +167,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: 'transparent',
     fontWeight: '500',
-    // Remover borda/outline nativos (especialmente no web) para evitar
-    // o "quadrado de seleção" amarelo distorcido ao redor do campo
     borderWidth: 0,
     outlineWidth: 0 as any,
     outlineStyle: 'none' as any,

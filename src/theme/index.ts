@@ -1,14 +1,11 @@
 export const theme = {
   colors: {
-    // Primárias
     backgroundLight: '#E5E5E5',
     blueLight: '#008BF2',
     
-    // Secundárias
     greenGood: '#58CC02',
     redBad: '#EE5555',
     
-    // Cores auxiliares
     white: '#FFFFFF',
     black: '#000000',
     gray: '#808080',

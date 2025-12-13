@@ -1,6 +1,5 @@
 import { apiClient } from './index';
 
-// Enums
 export enum UserCourseRole {
   OWNER = 'OWNER',
   MEMBER = 'MEMBER',
@@ -31,9 +30,7 @@ export enum DivisionType {
   PHASE = 'PHASE',
 }
 
-// DTOs
 export interface UserCourseResponse {
-  // Campos do UserCourseModel
   userCourseId: string;
   role: UserCourseRole;
   accepted: boolean;
@@ -41,7 +38,6 @@ export interface UserCourseResponse {
   customStart: string | null;
   customEnd: string | null;
 
-  // Campos do CourseModel (template)
   templateId: string;
   name: string;
   level: CourseLevel;
@@ -57,15 +53,13 @@ export interface UserCourseResponse {
   emails: string[];
   shareCode: string;
   createdBy: string;
-  archived?: boolean; // ✨ Adicionado
+  archived?: boolean;
 }
 
 export interface UpdateUserCourseRequest {
-  // Campos do UserCourse (personalizados)
   customStart?: string;
   customEnd?: string;
   
-  // Campos do CourseTemplate (apenas OWNER pode alterar)
   name?: string;
   level?: CourseLevel;
   divisionType?: DivisionType;
@@ -85,30 +79,25 @@ export interface JoinCourseRequest {
 }
 
 export const userCoursesApi = {
-  // Listar todos os UserCourses do usuário logado
   getAll: async (): Promise<UserCourseResponse[]> => {
     const response = await apiClient.get<UserCourseResponse[]>('/user-courses');
     return response.data;
   },
 
-  // Buscar um UserCourse específico (com dados do template embutidos)
   getById: async (id: string): Promise<UserCourseResponse> => {
     const response = await apiClient.get<UserCourseResponse>(`/user-courses/${id}`);
     return response.data;
   },
 
-  // Atualizar UserCourse (campos personalizados + template se for OWNER)
   update: async (id: string, data: UpdateUserCourseRequest): Promise<UserCourseResponse> => {
     const response = await apiClient.put<UserCourseResponse>(`/user-courses/${id}`, data);
     return response.data;
   },
 
-  // Deletar UserCourse (remove vínculo, não afeta o template)
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/user-courses/${id}`);
   },
 
-  // Entrar em um curso usando shareCode
   join: async (shareCode: string): Promise<UserCourseResponse> => {
     const response = await apiClient.post<UserCourseResponse>('/user-courses/join', { shareCode });
     return response.data;

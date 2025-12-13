@@ -45,7 +45,6 @@ export const EvaluationInfoScreen: React.FC = () => {
     },
   });
 
-  // Formatar horário automaticamente
   const formatTimeInput = (text: string): string => {
     const numbers = text.replace(/\D/g, '');
     if (numbers.length === 0) return '';
@@ -56,7 +55,6 @@ export const EvaluationInfoScreen: React.FC = () => {
     return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
   };
 
-  // Converter data ISO para formato brasileiro
   const convertISOToDate = (isoDate: string): string => {
     if (!isoDate) return '';
     const date = new Date(isoDate);
@@ -66,17 +64,14 @@ export const EvaluationInfoScreen: React.FC = () => {
     return `${day}/${month}/${year}`;
   };
 
-  // Converter data brasileira para ISO
   const convertDateToISO = (dateStr: string): string | undefined => {
     if (!dateStr || dateStr === 'dd/mm/aaaa') return undefined;
     const [day, month, year] = dateStr.split('/');
     if (!day || !month || !year) return undefined;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    // Retorna ISO completo com timezone (ZonedDateTime no backend)
     return date.toISOString();
   };
 
-  // Carregar dados da avaliação
   useEffect(() => {
     const loadEvaluation = async () => {
       if (!evaluationId) return;
@@ -85,9 +80,7 @@ export const EvaluationInfoScreen: React.FC = () => {
       try {
         const data = await assessmentsApi.getById(evaluationId);
         setEvaluation(data);
-        console.log('✅ Avaliação carregada:', data);
       } catch (error) {
-        console.error('❌ Erro ao carregar avaliação:', error);
       } finally {
         setIsLoading(false);
       }
@@ -96,7 +89,6 @@ export const EvaluationInfoScreen: React.FC = () => {
     loadEvaluation();
   }, [evaluationId]);
 
-  // Atualizar form quando evaluation mudar
   useEffect(() => {
     if (evaluation) {
       reset({
@@ -131,7 +123,6 @@ export const EvaluationInfoScreen: React.FC = () => {
       setEvaluation(updated);
       setShowSuccessModal(true);
     } catch (error: any) {
-      console.error('❌ Erro ao salvar:', error);
     } finally {
       setIsSaving(false);
     }
@@ -157,13 +148,11 @@ export const EvaluationInfoScreen: React.FC = () => {
         <Text style={styles.headerTitle}>{displayName}</Text>
       </View>
 
-      {/* Evaluation Header */}
       <View style={styles.evaluationHeader}>
         <Text style={styles.evaluationIcon}>📄</Text>
         <Text style={styles.evaluationName}>{displayName}</Text>
       </View>
 
-      {/* Form Section */}
       <View style={styles.formSection}>
         <Text style={styles.sectionTitle}>Informações da avaliação</Text>
 
@@ -278,7 +267,6 @@ export const EvaluationInfoScreen: React.FC = () => {
         />
       </View>
 
-      {/* Modal de Sucesso */}
       <Modal
         visible={showSuccessModal}
         transparent
@@ -303,7 +291,6 @@ export const EvaluationInfoScreen: React.FC = () => {
         </BlurView>
       </Modal>
 
-      {/* Seção de IA comentada para implementação futura
       <View style={styles.aiSection}>
         <Text style={styles.aiPromptTitle}>
           🤖 Assistente de IA (em breve)
