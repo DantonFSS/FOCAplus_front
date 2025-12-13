@@ -21,6 +21,7 @@ export interface DisciplineTemplateResponse {
   periodTemplateId: string;
   name: string;
   notes: string | null;
+  archived?: boolean; // ✨ Adicionado
 }
 
 export const disciplinesApi = {

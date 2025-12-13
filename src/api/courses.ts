@@ -79,6 +79,7 @@ export interface CourseResponse {
   emails?: string[];
   shareCode?: string;
   createdBy?: string;
+  archived?: boolean; // ✨ Adicionado
 }
 
 export interface UpdateCourseRequest {

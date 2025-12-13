@@ -17,7 +17,8 @@ export interface PeriodTemplateResponse {
   name: string;
   position: number;
   plannedStart: string | null; 
-  plannedEnd: string | null;  
+  plannedEnd: string | null;
+  archived?: boolean; // ✨ Adicionado
 }
 
 export const periodsApi = {

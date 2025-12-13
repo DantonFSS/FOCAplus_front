@@ -21,7 +21,6 @@ import { Button } from "../components/Button";
 import { theme } from "../theme";
 import { CourseResponse, coursesApi } from "../api/courses";
 import { userCoursesApi, UserCourseResponse } from "../api/userCourses";
-import { periodsApi, PeriodTemplateResponse } from "../api/periods";
 import { periodInstancesApi, PeriodInstanceResponse } from "../api/periodInstances";
 import { BlurView } from "expo-blur";
 
@@ -33,10 +32,8 @@ interface CourseInfoFormData {
   endDate: string;
 }
 
-// Tipo union para períodos (template ou instance)
-type PeriodData = (PeriodTemplateResponse | PeriodInstanceResponse) & {
-  isTemplate?: boolean;
-};
+// Frontend sempre trabalha com instances
+type PeriodData = PeriodInstanceResponse;
 
 // Converter data ISO para formato brasileiro
 const convertISOToDate = (isoDate: string): string => {
@@ -74,16 +71,14 @@ export const CourseInfoScreen: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!currentUserCourse?.templateId) return;
+    if (!currentUserCourse?.userCourseId) return;
     setIsDeleting(true);
     try {
-      // Se for OWNER, deleta o template (arquiva se >1 usuário, deleta se =1)
-      // Se for MEMBER, deleta apenas o vínculo
-      if (currentUserCourse.role === 'OWNER') {
-        await coursesApi.delete(currentUserCourse.templateId);
-      } else {
-        await userCoursesApi.delete(currentUserCourse.userCourseId);
-      }
+      // Frontend sempre usa userCourseApi (backend detecta role internamente)
+      // OWNER: Backend arquiva template (se >1 user) ou deleta (se único)
+      // MEMBER: Backend remove apenas o vínculo
+      await userCoursesApi.delete(currentUserCourse.userCourseId);
+      
       setShowDeleteConfirm(false);
       (navigation as any).reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (error) {
@@ -116,7 +111,7 @@ export const CourseInfoScreen: React.FC = () => {
     fetchUserCourse();
   }, [userCourseId]);
 
-  // Função para carregar períodos (template para OWNER, instance para MEMBER)
+  // Função para carregar períodos (sempre usa instances, tanto OWNER quanto MEMBER)
   const loadPeriods = React.useCallback(async () => {
     if (!currentUserCourse) {
       setPeriods([]);
@@ -125,15 +120,9 @@ export const CourseInfoScreen: React.FC = () => {
 
     setIsLoadingPeriods(true);
     try {
-      if (currentUserCourse.role === 'OWNER') {
-        // OWNER: busca templates do curso
-        const templates = await periodsApi.getTemplatesByCourse(currentUserCourse.templateId);
-        setPeriods(templates.map(t => ({ ...t, isTemplate: true })));
-      } else {
-        // MEMBER: busca instances do userCourse
-        const instances = await periodInstancesApi.getByUserCourse(currentUserCourse.userCourseId);
-        setPeriods(instances.map(i => ({ ...i, isTemplate: false })));
-      }
+      // Frontend sempre usa instances (backend filtra archived automaticamente)
+      const instances = await periodInstancesApi.getByUserCourse(currentUserCourse.userCourseId);
+      setPeriods(instances);
     } catch (error) {
       console.error("❌ Erro ao carregar períodos:", error);
       setPeriods([]);
@@ -547,12 +536,10 @@ export const CourseInfoScreen: React.FC = () => {
                   key={period.id}
                   style={styles.periodButton}
                   onPress={() => {
-                    // Navegar para informações do período (tela de edição)
+                    // Navegar para informações do período (sempre instance)
                     (navigation as any).navigate("PeriodInfo", {
                       periodId: period.id,
-                      isTemplate: period.isTemplate,
                       userCourseId: currentUserCourse.userCourseId,
-                      courseId: currentUserCourse.templateId,
                     });
                   }}
                 >

@@ -18,15 +18,14 @@ import { useForm, Controller } from "react-hook-form";
 import { DatePicker } from "../components/DatePicker";
 import { Button } from "../components/Button";
 import { theme } from "../theme";
-import { periodsApi, PeriodTemplateResponse } from "../api/periods";
 import { periodInstancesApi, PeriodInstanceResponse } from "../api/periodInstances";
-import { disciplinesApi, DisciplineTemplateResponse } from "../api/disciplines";
+import { disciplinesApi } from "../api/disciplines";
 import { disciplineInstancesApi, DisciplineInstanceResponse } from "../api/disciplineInstances";
 import { BlurView } from "expo-blur";
 import { InputText } from "../components/InputText";
 
-// Tipo union para período (template ou instance)
-type PeriodData = PeriodTemplateResponse | PeriodInstanceResponse;
+// Frontend sempre trabalha com period instances
+type PeriodData = PeriodInstanceResponse;
 
 interface PeriodInfoFormData {
   name: string;
@@ -37,11 +36,9 @@ interface PeriodInfoFormData {
 export const PeriodInfoScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { periodId, isTemplate, userCourseId, courseId } = route.params as {
+  const { periodId, userCourseId } = route.params as {
     periodId: string;
-    isTemplate: boolean;
     userCourseId: string;
-    courseId: string;
   };
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,7 +66,7 @@ export const PeriodInfoScreen: React.FC = () => {
     },
   });
 
-  // Buscar período do backend (template ou instance baseado em isTemplate)
+  // Buscar período do backend (sempre instance)
   useEffect(() => {
     const loadPeriod = async () => {
       if (!periodId) {
@@ -79,17 +76,9 @@ export const PeriodInfoScreen: React.FC = () => {
 
       setIsLoadingPeriod(true);
       try {
-        let loadedPeriod: PeriodData;
-        
-        if (isTemplate) {
-          // OWNER: busca template
-          loadedPeriod = await periodsApi.getTemplateById(periodId);
-          console.log("✅ Período template carregado:", loadedPeriod);
-        } else {
-          // MEMBER: busca instance
-          loadedPeriod = await periodInstancesApi.getById(periodId);
-          console.log("✅ Período instance carregado:", loadedPeriod);
-        }
+        // Frontend sempre usa instances (tanto OWNER quanto MEMBER)
+        const loadedPeriod = await periodInstancesApi.getById(periodId);
+        console.log("✅ Período instance carregado:", loadedPeriod);
 
         setPeriod(loadedPeriod);
 
@@ -109,7 +98,7 @@ export const PeriodInfoScreen: React.FC = () => {
     };
 
     loadPeriod();
-  }, [periodId, isTemplate, setValue]);
+  }, [periodId, setValue]);
 
   // Carregar disciplinas do backend
   // IMPORTANT: Always load discipline INSTANCES (both OWNER and MEMBER use instances)
@@ -120,41 +109,18 @@ export const PeriodInfoScreen: React.FC = () => {
 
     setIsLoadingDisciplines(true);
     try {
-      let periodInstanceId = currentPeriodId;
-
-      // If viewing a period TEMPLATE (OWNER), we need to find the corresponding period INSTANCE
-      if (isTemplate) {
-        console.log('📋 Viewing period template, finding OWNER\'s period instance...');
-        // Get all period instances for this user course
-        const allInstances = await periodInstancesApi.getByUserCourse(userCourseId);
-        // Find the instance that corresponds to this template
-        const matchingInstance = allInstances.find(
-          (inst) => inst.periodTemplateId === currentPeriodId
-        );
-        
-        if (matchingInstance) {
-          periodInstanceId = matchingInstance.id;
-          console.log(`✅ Found OWNER's period instance: ${periodInstanceId}`);
-        } else {
-          console.log('⚠️ No period instance found for this template yet');
-          setDisciplines([]);
-          setIsLoadingDisciplines(false);
-          return;
-        }
-      }
-
-      // Load discipline instances by period instance ID
+      // Frontend sempre usa instances - periodId já é um instance ID
       const loadedDisciplines = await disciplineInstancesApi.getByPeriodInstance(
-        periodInstanceId
+        currentPeriodId
       );
       setDisciplines(loadedDisciplines);
-      console.log(`✅ ${loadedDisciplines.length} discipline instances carregadas para período instance ${periodInstanceId}`);
+      console.log(`✅ ${loadedDisciplines.length} discipline instances carregadas`);
     } catch (error) {
       console.error("❌ Erro ao carregar disciplinas:", error);
     } finally {
       setIsLoadingDisciplines(false);
     }
-  }, [periodId, period?.id, isTemplate, userCourseId]);
+  }, [periodId, period?.id]);
 
   useEffect(() => {
     loadDisciplines();
@@ -204,25 +170,14 @@ export const PeriodInfoScreen: React.FC = () => {
       const plannedStartISO = convertDateToISO(data.plannedStart ?? "");
       const plannedEndISO = convertDateToISO(data.plannedEnd ?? "");
 
-      console.log("📝 Atualizando período:", period.id);
+      console.log("📝 Atualizando período instance:", period.id);
 
-      let updated: PeriodData;
-      
-      if (isTemplate) {
-        // OWNER: atualiza template
-        updated = await periodsApi.updateTemplate(period.id, {
-          name: period.name,
-          plannedStart: plannedStartISO,
-          plannedEnd: plannedEndISO,
-        });
-      } else {
-        // MEMBER: atualiza instance
-        updated = await periodInstancesApi.update(period.id, {
-          name: period.name,
-          plannedStart: plannedStartISO,
-          plannedEnd: plannedEndISO,
-        });
-      }
+      // Frontend sempre atualiza instances (backend detecta role internamente)
+      const updated = await periodInstancesApi.update(period.id, {
+        name: period.name,
+        plannedStart: plannedStartISO,
+        plannedEnd: plannedEndISO,
+      });
 
       setPeriod(updated);
 
@@ -275,19 +230,19 @@ export const PeriodInfoScreen: React.FC = () => {
     console.log("📝 Criando disciplina:", newDisciplineName.trim());
 
     try {
-      // OWNER creates template, backend auto-creates instance for OWNER
-      // MEMBER also creates template (if it doesn't exist), backend creates instance
-      // Both end up with instances, which is what we need for teachers, schedules, etc.
-      const templateId = isTemplate 
-        ? effectivePeriodId 
-        : (period as PeriodInstanceResponse)?.periodTemplateId || effectivePeriodId;
-      
+      // Criar discipline template (backend auto-cria instance para o user)
+      if (!period?.periodTemplateId) {
+        Alert.alert("Erro", "Template do período não encontrado.");
+        setIsSavingDiscipline(false);
+        return;
+      }
+
       await disciplinesApi.create({
-        periodTemplateId: templateId,
+        periodTemplateId: period.periodTemplateId,
         name: newDisciplineName.trim(),
       });
 
-      console.log("✅ Disciplina template criada. Backend criou automaticamente a instância.");
+      console.log("✅ Disciplina template criada (backend auto-cria instance).");
 
       // Reload discipline instances (backend creates them automatically)
       await loadDisciplines();
