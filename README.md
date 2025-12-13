@@ -82,7 +82,7 @@ src/
 
 ## 🌐 API Backend
 
-A aplicação se conecta ao backend em `http://localhost:8080/api/v1` por padrão. Para produção, configure a variável de ambiente apropriada.
+A aplicação se conecta ao backend em `https://foc-aplus-front.vercel.app/` por padrão. Para produção, configure a variável de ambiente apropriada.
 
 ## 📄 Licença
 
