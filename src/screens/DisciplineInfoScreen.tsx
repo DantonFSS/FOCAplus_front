@@ -560,7 +560,7 @@ export const DisciplineInfoScreen: React.FC = () => {
       <View style={styles.actionButtons}>
         <Button
           title="Tarefas de casa"
-          onPress={() => (navigation as any).navigate('Tasks')}
+          onPress={() => (navigation as any).navigate('Tasks', { disciplineId })}
           variant="primary"
           style={styles.actionButton}
         />
