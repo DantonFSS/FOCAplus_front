@@ -153,7 +153,8 @@ export const PeriodInfoScreen: React.FC = () => {
     try {
       const [day, month, year] = dateStr.split("/");
       const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      return date.toISOString().split("T")[0];
+      // Retorna ISO completo com timezone (ZonedDateTime no backend)
+      return date.toISOString();
     } catch {
       return undefined;
     }
@@ -449,7 +450,13 @@ export const PeriodInfoScreen: React.FC = () => {
                 });
               }}
             >
-              <Text style={styles.disciplineName}>{discipline.name}</Text>
+              <View style={styles.disciplineCardContent}>
+                <View style={styles.disciplineIcon}>
+                  <Text style={styles.disciplineIconText}>📚</Text>
+                </View>
+                <Text style={styles.disciplineName}>{discipline.name}</Text>
+                <Text style={styles.disciplineArrow}>›</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -563,15 +570,43 @@ const styles = StyleSheet.create({
   },
   disciplineCard: {
     backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: theme.colors.grayLight,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.grayLight,
+  },
+  disciplineCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+  },
+  disciplineIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.blueLight + "15",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  disciplineIconText: {
+    fontSize: 20,
   },
   disciplineName: {
+    flex: 1,
     fontSize: theme.typography.fontSize.md,
+    fontWeight: "600",
     color: theme.colors.black,
+  },
+  disciplineArrow: {
+    fontSize: 24,
+    color: theme.colors.gray,
+    fontWeight: "300",
   },
   loadingContainer: {
     alignItems: "center",

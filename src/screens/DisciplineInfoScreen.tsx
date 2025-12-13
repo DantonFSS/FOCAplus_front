@@ -677,7 +677,7 @@ export const DisciplineInfoScreen: React.FC = () => {
                 <InputText
                   value={newScheduleStartTime}
                   onChangeText={(text) => setNewScheduleStartTime(formatTimeInput(text))}
-                  placeholder="08:00"
+                  placeholder=""
                   variant="light"
                   keyboardType="numeric"
                   maxLength={5}
@@ -689,7 +689,7 @@ export const DisciplineInfoScreen: React.FC = () => {
                 <InputText
                   value={newScheduleEndTime}
                   onChangeText={(text) => setNewScheduleEndTime(formatTimeInput(text))}
-                  placeholder="10:00"
+                  placeholder=""
                   variant="light"
                   keyboardType="numeric"
                   maxLength={5}
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.round,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     marginBottom: theme.spacing.lg,
   },
   scoreText: {

@@ -10,4 +10,5 @@ export { AddDisciplinesScreen } from './AddDisciplinesScreen';
 export { CourseInfoScreen } from './CourseInfoScreen';
 export { DisciplineInfoScreen } from './DisciplineInfoScreen';
 export { EvaluationInfoScreen } from './EvaluationInfoScreen';
+export { TasksScreen } from './TasksScreen';
 

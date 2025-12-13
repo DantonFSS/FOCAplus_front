@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useForm, Controller } from 'react-hook-form';
 import { InputText } from '../components/InputText';
@@ -7,6 +7,7 @@ import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/Button';
 import { theme } from '../theme';
 import { assessmentsApi, AssessmentResponse } from '../api/assessments';
+import { BlurView } from 'expo-blur';
 
 interface EvaluationFormData {
   title: string;
@@ -24,13 +25,15 @@ export const EvaluationInfoScreen: React.FC = () => {
   const [evaluation, setEvaluation] = useState<AssessmentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const {
     control,
     handleSubmit,
     setValue,
     reset,
-    formState: { errors },
+    watch,
+    formState: { errors, isDirty },
   } = useForm<EvaluationFormData>({
     defaultValues: {
       title: '',
@@ -69,7 +72,8 @@ export const EvaluationInfoScreen: React.FC = () => {
     const [day, month, year] = dateStr.split('/');
     if (!day || !month || !year) return undefined;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    return date.toISOString().split('T')[0];
+    // Retorna ISO completo com timezone (ZonedDateTime no backend)
+    return date.toISOString();
   };
 
   // Carregar dados da avaliação
@@ -84,7 +88,6 @@ export const EvaluationInfoScreen: React.FC = () => {
         console.log('✅ Avaliação carregada:', data);
       } catch (error) {
         console.error('❌ Erro ao carregar avaliação:', error);
-        Alert.alert('Erro', 'Não foi possível carregar os dados da avaliação.');
       } finally {
         setIsLoading(false);
       }
@@ -126,10 +129,9 @@ export const EvaluationInfoScreen: React.FC = () => {
 
       const updated = await assessmentsApi.update(evaluationId, updateData);
       setEvaluation(updated);
-      Alert.alert('Sucesso', 'Avaliação atualizada com sucesso!');
+      setShowSuccessModal(true);
     } catch (error: any) {
       console.error('❌ Erro ao salvar:', error);
-      Alert.alert('Erro', error?.response?.data?.message || 'Não foi possível salvar as alterações.');
     } finally {
       setIsSaving(false);
     }
@@ -272,9 +274,34 @@ export const EvaluationInfoScreen: React.FC = () => {
           onPress={handleSubmit(onSubmit)}
           variant="primary"
           style={styles.saveButton}
-          disabled={isSaving}
+          disabled={isSaving || !isDirty}
         />
       </View>
+
+      {/* Modal de Sucesso */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.successIcon}>✓</Text>
+              <Text style={styles.modalTitle}>Sucesso!</Text>
+              <Text style={styles.modalMessage}>Avaliação atualizada com sucesso</Text>
+              
+              <Button
+                title="OK"
+                variant="primary"
+                onPress={() => setShowSuccessModal(false)}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
 
       {/* Seção de IA comentada para implementação futura
       <View style={styles.aiSection}>
@@ -364,5 +391,51 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.grayDark,
   },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(8, 16, 32, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    width: '100%',
+    height: '100%',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg * 1.5,
+    width: '90%',
+    maxWidth: 360,
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+  },
+  successIcon: {
+    fontSize: 64,
+    color: theme.colors.blueLight,
+    marginBottom: theme.spacing.md,
+  },
+  modalTitle: {
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: '700',
+    color: theme.colors.black,
+    textAlign: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  modalMessage: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.grayDark,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  modalButton: {
+    width: '100%',
+  },
 });
-

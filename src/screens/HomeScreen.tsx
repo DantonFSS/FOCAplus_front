@@ -154,7 +154,7 @@ export const HomeScreen: React.FC = () => {
 
         <TouchableOpacity 
           style={styles.optionCard}
-          onPress={() => (navigation as any).navigate('CourseCreation', { screen: 'NewCourse' })}
+          onPress={() => (navigation as any).navigate('Pro')}
         >
           <View style={styles.optionIcon}>
             <Image 
@@ -176,7 +176,7 @@ export const HomeScreen: React.FC = () => {
 
         <TouchableOpacity 
           style={styles.optionCard}
-          onPress={() => (navigation as any).navigate('CourseCreation', { screen: 'NewCourse' })}
+          onPress={() => (navigation as any).navigate('Pro')}
         >
           <View style={styles.optionIcon}>
             <Image 

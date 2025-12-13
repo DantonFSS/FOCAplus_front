@@ -45,13 +45,14 @@ const convertISOToDate = (isoDate: string): string => {
   return `${day}/${month}/${year}`;
 };
 
-// Converter data brasileira (dd/mm/aaaa) para ISO
+// Converter data brasileira (dd/mm/aaaa) para ISO com timezone
 const convertDateToISO = (dateStr: string): string | undefined => {
   if (!dateStr || dateStr === "dd/mm/aaaa") return undefined;
   const [day, month, year] = dateStr.split("/");
   if (!day || !month || !year) return undefined;
   const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-  return date.toISOString().split("T")[0];
+  // Retorna ISO com timezone (ZonedDateTime no backend)
+  return date.toISOString();
 };
 
 export const CourseInfoScreen: React.FC = () => {

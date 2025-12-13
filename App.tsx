@@ -16,6 +16,7 @@ import { AddDisciplinesScreen } from './src/screens/AddDisciplinesScreen';
 import { CourseInfoScreen } from './src/screens/CourseInfoScreen';
 import { DisciplineInfoScreen } from './src/screens/DisciplineInfoScreen';
 import { EvaluationInfoScreen } from './src/screens/EvaluationInfoScreen';
+import { TasksScreen } from './src/screens/TasksScreen';
 import { DrawerContent } from './src/components/DrawerContent';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { theme } from './src/theme';
@@ -56,6 +57,7 @@ function MainStack() {
       <Stack.Screen name="AddDisciplines" component={AddDisciplinesScreen} />
       <Stack.Screen name="DisciplineInfo" component={DisciplineInfoScreen} />
       <Stack.Screen name="EvaluationInfo" component={EvaluationInfoScreen} />
+      <Stack.Screen name="Tasks" component={TasksScreen} />
     </Stack.Navigator>
   );
 }
