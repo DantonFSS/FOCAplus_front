@@ -108,9 +108,12 @@ export const NewCourseScreen: React.FC = () => {
 
       console.log('✅ UserCourse encontrado:', ownerUserCourse.userCourseId);
 
-      // Navegar para CourseInfo com o userCourseId
-      (navigation as any).navigate('CourseInfo', {
-        userCourseId: ownerUserCourse.userCourseId,
+      // Navegar para Home (MainStack) e então para CourseInfo
+      (navigation as any).navigate('Home', {
+        screen: 'CourseInfo',
+        params: {
+          userCourseId: ownerUserCourse.userCourseId,
+        },
       });
     } catch (error: any) {
       console.error('❌ Erro ao criar curso:', error);

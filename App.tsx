@@ -16,6 +16,7 @@ import { AddDisciplinesScreen } from './src/screens/AddDisciplinesScreen';
 import { CourseInfoScreen } from './src/screens/CourseInfoScreen';
 import { DisciplineInfoScreen } from './src/screens/DisciplineInfoScreen';
 import { EvaluationInfoScreen } from './src/screens/EvaluationInfoScreen';
+import { TasksScreen } from './src/screens/TasksScreen';
 import { EstudandoScreen } from './src/screens/EstudandoScreen';
 import { StudyTimerScreen } from './src/screens/StudyTimerScreen';
 import { PomodoroScreen } from './src/screens/PomodoroScreen';
@@ -60,6 +61,7 @@ function MainStack() {
       <Stack.Screen name="AddDisciplines" component={AddDisciplinesScreen} />
       <Stack.Screen name="DisciplineInfo" component={DisciplineInfoScreen} />
       <Stack.Screen name="EvaluationInfo" component={EvaluationInfoScreen} />
+      <Stack.Screen name="Tasks" component={TasksScreen} />
       <Stack.Screen name="Estudando" component={EstudandoScreen} />
       <Stack.Screen name="StudyTimer" component={StudyTimerScreen} />
       <Stack.Screen name="Pomodoro" component={PomodoroScreen} />
