@@ -7,6 +7,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  Image,
 } from "react-native";
 import { theme } from "../theme";
 
@@ -102,7 +103,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         <Text style={[styles.dateText, !value && styles.placeholder]}>
           {value || placeholder}
         </Text>
-        <Text style={styles.calendarIcon}>📅</Text>
+        <Image source={require('../../assets/full_calendar_icon.png')} style={styles.calendarIcon} />
       </TouchableOpacity>
       {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -299,7 +300,9 @@ const styles = StyleSheet.create({
     color: theme.colors.gray,
   },
   calendarIcon: {
-    fontSize: 20,
+    width: 20,
+    height: 20,
+    resizeMode: 'contain',
     marginLeft: theme.spacing.sm,
   },
   errorText: {

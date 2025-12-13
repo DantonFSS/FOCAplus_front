@@ -11,4 +11,8 @@ export { CourseInfoScreen } from './CourseInfoScreen';
 export { DisciplineInfoScreen } from './DisciplineInfoScreen';
 export { EvaluationInfoScreen } from './EvaluationInfoScreen';
 export { TasksScreen } from './TasksScreen';
+export { EstudandoScreen } from './EstudandoScreen';
+export { StudyTimerScreen } from './StudyTimerScreen';
+export { PomodoroScreen } from './PomodoroScreen';
+export { StudyFinishedScreen } from './StudyFinishedScreen';
 
