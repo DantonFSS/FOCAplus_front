@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: theme.colors.grayMedium,
+    color: theme.colors.gray,
   },
   emptyContainer: {
     flex: 1,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   emptyDescription: {
     fontSize: 14,
-    color: theme.colors.grayMedium,
+    color: theme.colors.gray,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 30,
@@ -323,11 +323,11 @@ const styles = StyleSheet.create({
   },
   taskTitleCompleted: {
     textDecorationLine: 'line-through',
-    color: theme.colors.grayMedium,
+    color: theme.colors.gray,
   },
   taskDueDate: {
     fontSize: 13,
-    color: theme.colors.grayMedium,
+    color: theme.colors.gray,
     marginBottom: 4,
   },
   taskPoints: {
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   taskDescription: {
     fontSize: 14,
-    color: theme.colors.grayMedium,
+    color: theme.colors.gray,
     marginTop: 8,
     marginLeft: 36,
     lineHeight: 20,

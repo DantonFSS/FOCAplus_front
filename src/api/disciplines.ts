@@ -97,6 +97,8 @@ export interface CreateDisciplineInstanceRequest {
 }
 
 export interface UpdateDisciplineInstanceRequest {
+  name?: string;
+  notes?: string;
   plannedStart?: string;
   plannedEnd?: string;
   status?: string;
